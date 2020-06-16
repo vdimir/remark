@@ -19,6 +19,7 @@ import (
 	"github.com/umputun/remark42/backend/app/store/admin"
 	"github.com/umputun/remark42/backend/app/store/engine"
 	"github.com/umputun/remark42/backend/app/store/image"
+	"github.com/umputun/remark42/backend/app/store/search"
 )
 
 // DataStore wraps store.Interface with additional methods
@@ -36,6 +37,7 @@ type DataStore struct {
 	TitleExtractor         *TitleExtractor
 	RestrictedWordsMatcher *RestrictedWordsMatcher
 	ImageService           *image.Service
+	SearchService          search.Searcher
 
 	// granular locks
 	scopedLocks struct {
@@ -842,6 +844,36 @@ func (s *DataStore) Last(siteID string, limit int, since time.Time, user store.U
 		return comments, err
 	}
 	return s.alterComments(comments, user), nil
+}
+
+// Search commens using user query
+func (s *DataStore) Search(siteID string, query string) ([]store.Comment, error) {
+	req := &search.Request {
+		Query: query,
+	}
+	serp, err := s.SearchService.Search(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "search error")
+	}
+
+	comments := make([]store.Comment, 0, len(serp.Documents))
+	for _, r := range serp.Documents {
+		getReq := engine.GetRequest{
+			Locator: store.Locator{
+				SiteID: siteID,
+				URL:    r.PostURL,
+			},
+			CommentID: r.ID,
+		}
+		comment, err := s.Engine.Get(getReq)
+
+		if err != nil {
+			return nil, errors.Wrapf(err, "error retrieve search result (%v)", getReq)
+		}
+		comments = append(comments, comment)
+	}
+
+	return comments, nil
 }
 
 // Close store service

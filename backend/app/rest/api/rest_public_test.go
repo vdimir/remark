@@ -917,6 +917,47 @@ func TestRest_LastCommentsStreamSince(t *testing.T) {
 	require.Equal(t, 10*3, len(recs), "should be 10 events, including first record:\n", recs)
 }
 
+func TestRest_Search(t *testing.T) {
+	ts, _, teardown := startupT(t)
+	defer teardown()
+
+	var err error
+	var comments []store.Comment
+
+	c1 := store.Comment{Text: "test test foo", ParentID: "",
+		Locator: store.Locator{SiteID: "remark42", URL: "https://radio-t.com/blah1"}}
+	id1 := addComment(t, c1, ts)
+
+	c2 := store.Comment{Text: "test test bar", ParentID: id1,
+		Locator: store.Locator{SiteID: "remark42", URL: "https://radio-t.com/blah1"}}
+	id2 := addComment(t, c2, ts)
+
+	c3 := store.Comment{Text: "go to the bar", ParentID: "",
+		Locator: store.Locator{SiteID: "remark42", URL: "https://radio-t.com/blah1"}}
+	id3 := addComment(t, c3, ts)
+
+	{
+		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=bar")
+		require.Equal(t, 200, code)
+
+		err = json.Unmarshal([]byte(res), &comments)
+		assert.NoError(t, err)
+		require.Equal(t, 2, len(comments), "should have 2 comments")
+		assert.Equal(t, id3, comments[0].ID)
+		assert.Equal(t, id2, comments[1].ID)
+	}
+	{
+		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test")
+		require.Equal(t, 200, code)
+
+		err = json.Unmarshal([]byte(res), &comments)
+		assert.NoError(t, err)
+		require.Equal(t, 2, len(comments), "should have 2 comments")
+		assert.Equal(t, id2, comments[0].ID)
+		assert.Equal(t, id1, comments[1].ID)
+	}
+}
+
 func postComment(t *testing.T, url string) {
 	resp, err := post(t, url+"/api/v1/comment",
 		`{"text": "test 123", "locator":{"url": "https://radio-t.com/blah1", "site": "remark42"}}`)

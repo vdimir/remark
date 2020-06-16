@@ -45,6 +45,7 @@ type pubStore interface {
 	Count(locator store.Locator) (int, error)
 	List(siteID string, limit int, skip int) ([]store.PostInfo, error)
 	Info(locator store.Locator, readonlyAge int) (store.PostInfo, error)
+	Search(siteID string, query string) ([]store.Comment, error)
 
 	ValidateComment(c *store.Comment) error
 	IsReadOnly(locator store.Locator) bool
@@ -444,6 +445,38 @@ func (s *public) loadPictureCtrl(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	if _, err = io.Copy(w, bytes.NewReader(img)); err != nil {
 		log.Printf("[WARN] can't send response to %s, %s", r.RemoteAddr, err)
+	}
+}
+
+// GET /search?site=siteID&query=queryText&limit=20 - search documents
+func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
+	siteID := r.URL.Query().Get("site")
+	query := r.URL.Query().Get("query")
+
+	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+	if err != nil {
+		limit = 20
+	}
+
+	log.Printf("[INFO] search comments for %s, query %q, limit %d", siteID, query, limit)
+
+	key := cache.NewKey(query).ID(URLKey(r)).Scopes(siteID, searchScope)
+	data, err := s.cache.Get(key, func() ([]byte, error) {
+		comments, err := s.dataService.Search(siteID, query)
+		if err != nil {
+			return nil, err
+		}
+
+		return encodeJSONWithHTML(comments)
+	})
+
+	if err != nil {
+		rest.SendErrorJSON(w, r, http.StatusInternalServerError, err, "can't perform search request", rest.ErrInternal)
+		return
+	}
+
+	if err = R.RenderJSONFromBytes(w, r, data); err != nil {
+		log.Printf("[WARN] can't render search results for site %s", siteID)
 	}
 }
 

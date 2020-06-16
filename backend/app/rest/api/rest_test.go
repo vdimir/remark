@@ -35,6 +35,7 @@ import (
 	adminstore "github.com/umputun/remark42/backend/app/store/admin"
 	"github.com/umputun/remark42/backend/app/store/engine"
 	"github.com/umputun/remark42/backend/app/store/image"
+	"github.com/umputun/remark42/backend/app/store/search"
 	"github.com/umputun/remark42/backend/app/store/service"
 )
 
@@ -333,17 +334,27 @@ func TestRest_cacheControl(t *testing.T) {
 
 }
 
-func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
-	tmp := os.TempDir()
-	var testDB string
-	// pick a file name which is not in use for sure
+// randomFileName pick a file name which is not in use for sure
+func randomFileName(basename string, tempDir string) (fname string, err error) {
 	for i := 0; i < 10; i++ {
-		testDB = fmt.Sprintf("/%s/test-remark-%d.db", tmp, rand.Int31())
-		_, err := os.Stat(testDB)
+		fname = fmt.Sprintf("/%s/%s-%d.db", tempDir, basename, rand.Int31())
+		_, err := os.Stat(fname)
 		if err != nil {
 			break
 		}
 	}
+	return
+}
+
+func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
+	tmp := os.TempDir()
+
+	testDB, err := randomFileName("test-remark", tmp)
+	require.NoError(t, err)
+
+	searchIndex, err := randomFileName("test-search-remark", tmp)
+	require.NoError(t, err)
+
 	_ = os.RemoveAll(tmp + "/ava-remark42")
 	_ = os.RemoveAll(tmp + "/pics-remark42")
 
@@ -355,13 +366,17 @@ func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
 	astore := adminstore.NewStaticStore("123456", []string{"remark42"}, []string{"a1", "a2"}, "admin@remark-42.com")
 	restrictedWordsMatcher := service.NewRestrictedWordsMatcher(service.StaticRestrictedWordsLister{Words: []string{"duck"}})
 
+	searchService, err := search.NewBleveService(searchIndex, "standard")
+	require.NoError(t, err)
+
 	dataStore := &service.DataStore{
-		Engine:                 b,
+		Engine:                 searchService.WrapEngine(b),
 		EditDuration:           5 * time.Minute,
 		MaxCommentSize:         4000,
 		AdminStore:             astore,
 		MaxVotes:               service.UnlimitedVotes,
 		RestrictedWordsMatcher: restrictedWordsMatcher,
+		SearchService:          searchService,
 	}
 
 	srv = &Rest{
@@ -411,6 +426,7 @@ func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
 		ts.Close()
 		require.NoError(t, srv.DataService.Close())
 		_ = os.Remove(testDB)
+		_ = os.RemoveAll(searchIndex)
 		_ = os.RemoveAll(tmp + "/ava-remark42")
 		_ = os.RemoveAll(tmp + "/pics-remark42")
 	}
@@ -540,5 +556,6 @@ func waitForHTTPSServerStart(port int) {
 }
 
 func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
+	bleveIgnore := goleak.IgnoreTopFunction("github.com/blevesearch/bleve/index.AnalysisWorker")
+	goleak.VerifyTestMain(m, bleveIgnore)
 }

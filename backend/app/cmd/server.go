@@ -36,22 +36,24 @@ import (
 	"github.com/umputun/remark42/backend/app/store/admin"
 	"github.com/umputun/remark42/backend/app/store/engine"
 	"github.com/umputun/remark42/backend/app/store/image"
+	"github.com/umputun/remark42/backend/app/store/search"
 	"github.com/umputun/remark42/backend/app/store/service"
 	"github.com/umputun/remark42/backend/app/templates"
 )
 
 // ServerCommand with command line flags and env
 type ServerCommand struct {
-	Store      StoreGroup      `group:"store" namespace:"store" env-namespace:"STORE"`
-	Avatar     AvatarGroup     `group:"avatar" namespace:"avatar" env-namespace:"AVATAR"`
-	Cache      CacheGroup      `group:"cache" namespace:"cache" env-namespace:"CACHE"`
-	Admin      AdminGroup      `group:"admin" namespace:"admin" env-namespace:"ADMIN"`
-	Notify     NotifyGroup     `group:"notify" namespace:"notify" env-namespace:"NOTIFY"`
-	SMTP       SMTPGroup       `group:"smtp" namespace:"smtp" env-namespace:"SMTP"`
-	Image      ImageGroup      `group:"image" namespace:"image" env-namespace:"IMAGE"`
-	SSL        SSLGroup        `group:"ssl" namespace:"ssl" env-namespace:"SSL"`
-	Stream     StreamGroup     `group:"stream" namespace:"stream" env-namespace:"STREAM"`
-	ImageProxy ImageProxyGroup `group:"image-proxy" namespace:"image-proxy" env-namespace:"IMAGE_PROXY"`
+	Store        StoreGroup        `group:"store" namespace:"store" env-namespace:"STORE"`
+	Avatar       AvatarGroup       `group:"avatar" namespace:"avatar" env-namespace:"AVATAR"`
+	Cache        CacheGroup        `group:"cache" namespace:"cache" env-namespace:"CACHE"`
+	Admin        AdminGroup        `group:"admin" namespace:"admin" env-namespace:"ADMIN"`
+	Notify       NotifyGroup       `group:"notify" namespace:"notify" env-namespace:"NOTIFY"`
+	SMTP         SMTPGroup         `group:"smtp" namespace:"smtp" env-namespace:"SMTP"`
+	Image        ImageGroup        `group:"image" namespace:"image" env-namespace:"IMAGE"`
+	SSL          SSLGroup          `group:"ssl" namespace:"ssl" env-namespace:"SSL"`
+	Stream       StreamGroup       `group:"stream" namespace:"stream" env-namespace:"STREAM"`
+	ImageProxy   ImageProxyGroup   `group:"image-proxy" namespace:"image-proxy" env-namespace:"IMAGE_PROXY"`
+	SearchEngine SearchEngineGroup `group:"search-engine" namespace:"search-engine" env-namespace:"SEARN_ENGINE"`
 
 	Sites            []string      `long:"site" env:"SITE" default:"remark" description:"site names" env-delim:","`
 	AnonymousVote    bool          `long:"anon-vote" env:"ANON_VOTE" description:"enable anonymous votes (works only with VOTES_IP enabled)"`
@@ -229,6 +231,13 @@ type RPCGroup struct {
 	AuthPassword string        `long:"auth_passwd" env:"AUTH_PASSWD" description:"basic auth user password"`
 }
 
+// SearchEngineGroup defines options group for search engine
+type SearchEngineGroup struct {
+	Type      string `long:"type" env:"Type" description:"search engine to use" default:"none"`
+	IndexPath string `long:"index_path" env:"INDEX_PATH" default:"./var/comments.index" description:"path to search index"`
+	Analyzer  string `long:"analyzer" env:"ANALYZER" default:"stardard" description:"text analyzer type (language-specific)"`
+}
+
 // LoadingCache defines interface for caching
 type LoadingCache interface {
 	Get(key cache.Key, fn func() ([]byte, error)) (data []byte, err error) // load from cache if found or put to cache and return
@@ -344,7 +353,15 @@ func (s *ServerCommand) newServerApp() (*serverApp, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to make pictures store")
 	}
-	log.Printf("[DEBUG] image service for url=%s, EditDuration=%v", imageService.ImageAPI, imageService.EditDuration)
+
+	searchService, err := s.makeSearchService()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to make search service")
+	}
+
+	if searchService != nil {
+		storeEngine = searchService.WrapEngine(storeEngine)
+	}
 
 	dataService := &service.DataStore{
 		Engine:                 storeEngine,
@@ -354,6 +371,7 @@ func (s *ServerCommand) newServerApp() (*serverApp, error) {
 		MaxVotes:               s.MaxVotes,
 		PositiveScore:          s.PositiveScore,
 		ImageService:           imageService,
+		SearchService:          searchService,
 		TitleExtractor:         service.NewTitleExtractor(http.Client{Timeout: time.Second * 5}),
 		RestrictedWordsMatcher: service.NewRestrictedWordsMatcher(service.StaticRestrictedWordsLister{Words: s.RestrictedWords}),
 	}
@@ -937,6 +955,24 @@ func (s *ServerCommand) makeAuthenticator(ds *service.DataStore, avas avatar.Sto
 	}
 
 	return authenticator, nil
+}
+
+func (s *ServerCommand) makeSearchService() (search.Searcher, error) {
+	if s.SearchEngine.Type == "none" {
+		log.Printf("[INFO] search feature disabled")
+		return nil, nil
+	}
+
+	if s.SearchEngine.IndexPath == "" {
+		return nil, errors.Errorf("wrong search index path %s", s.SearchEngine.IndexPath)
+	}
+	log.Printf("[INFO] make %q search service", s.SearchEngine.Type)
+
+	switch s.SearchEngine.Type {
+	case "bleve":
+		return search.NewBleveService(s.SearchEngine.IndexPath, s.SearchEngine.Analyzer)
+	}
+	return nil, errors.Errorf("wrong search engine type %q", s.SearchEngine.Type)
 }
 
 // authRefreshCache used by authenticator to minimize repeatable token refreshes

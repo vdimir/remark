@@ -84,6 +84,7 @@ type LoadingCache interface {
 const hardBodyLimit = 1024 * 64 // limit size of body
 
 const lastCommentsScope = "last"
+const searchScope = "search"
 
 type commentsWithInfo struct {
 	Comments []store.Comment `json:"comments"`
@@ -242,6 +243,7 @@ func (s *Rest) routes() chi.Router {
 			ropen.Post("/preview", s.pubRest.previewCommentCtrl)
 			ropen.Get("/info", s.pubRest.infoCtrl)
 			ropen.Get("/img", s.ImageProxy.Handler)
+			ropen.Get("/search", s.pubRest.searchQueryCtrl)
 
 			ropen.Route("/rss", func(rrss chi.Router) {
 				rrss.Get("/post", s.rssRest.postCommentsCtrl)

@@ -46,13 +46,16 @@ github.com/andybalholm/cascadia
 ## explicit
 github.com/blevesearch/bleve
 github.com/blevesearch/bleve/analysis
+github.com/blevesearch/bleve/analysis/analyzer/keyword
 github.com/blevesearch/bleve/analysis/analyzer/standard
 github.com/blevesearch/bleve/analysis/datetime/flexible
 github.com/blevesearch/bleve/analysis/datetime/optional
 github.com/blevesearch/bleve/analysis/lang/en
+github.com/blevesearch/bleve/analysis/lang/ru
 github.com/blevesearch/bleve/analysis/token/lowercase
 github.com/blevesearch/bleve/analysis/token/porter
 github.com/blevesearch/bleve/analysis/token/stop
+github.com/blevesearch/bleve/analysis/tokenizer/single
 github.com/blevesearch/bleve/analysis/tokenizer/unicode
 github.com/blevesearch/bleve/document
 github.com/blevesearch/bleve/geo
@@ -88,6 +91,7 @@ github.com/blevesearch/segment
 # github.com/blevesearch/snowballstem v0.9.0
 github.com/blevesearch/snowballstem
 github.com/blevesearch/snowballstem/english
+github.com/blevesearch/snowballstem/russian
 # github.com/blevesearch/zap/v11 v11.0.9
 github.com/blevesearch/zap/v11
 # github.com/blevesearch/zap/v12 v12.0.9

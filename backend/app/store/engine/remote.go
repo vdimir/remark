@@ -104,6 +104,16 @@ func (r *RPC) Count(req FindRequest) (count int, err error) {
 	return count, err
 }
 
+// ListSites returns slice with all existing site ids
+func (r *RPC) ListSites() (result []string, err error) {
+	resp, err := r.Call("store.list_flags")
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(*resp.Result, &result)
+	return result, err
+}
+
 // Delete post(s), user, comment, user details, or everything
 func (r *RPC) Delete(req DeleteRequest) error {
 	_, err := r.Call("store.delete", req)

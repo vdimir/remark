@@ -398,6 +398,15 @@ func (b *BoltDB) ListFlags(req FlagRequest) (res []interface{}, err error) {
 	return nil, errors.Errorf("flag %s not listable", req.Flag)
 }
 
+// ListSites returns slice with all existing site ids
+func (b *BoltDB) ListSites() ([]string, error) {
+	res := make([]string, 0, len(b.dbs))
+	for k := range b.dbs {
+		res = append(res, k)
+	}
+	return res, nil
+}
+
 // Delete post(s), user, comment, user details, or everything
 func (b *BoltDB) Delete(req DeleteRequest) error {
 

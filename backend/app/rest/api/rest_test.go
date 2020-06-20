@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -22,6 +21,7 @@ import (
 	"github.com/go-pkgz/auth/token"
 	cache "github.com/go-pkgz/lcw"
 	R "github.com/go-pkgz/rest"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
@@ -335,24 +335,25 @@ func TestRest_cacheControl(t *testing.T) {
 }
 
 // randomFileName pick a file name which is not in use for sure
-func randomFileName(basename string, tempDir string) (fname string, err error) {
+func randomFileName(tempDir, basename string) (string, error) {
 	for i := 0; i < 10; i++ {
-		fname = fmt.Sprintf("/%s/%s-%d.db", tempDir, basename, rand.Int31())
+		fname := fmt.Sprintf("/%s/%s-%d.db", tempDir, basename, rand.Int31())
+		fmt.Printf("fname %q", fname)
 		_, err := os.Stat(fname)
 		if err != nil {
-			break
+			return fname, nil
 		}
 	}
-	return
+	return "", errors.Errorf("cannot create temp file")
 }
 
 func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
 	tmp := os.TempDir()
 
-	testDB, err := randomFileName("test-remark", tmp)
+	testDB, err := randomFileName(tmp, "test-remark")
 	require.NoError(t, err)
 
-	searchIndex, err := randomFileName("test-search-remark", tmp)
+	searchIndex, err := randomFileName(tmp, "test-search-remark")
 	require.NoError(t, err)
 
 	_ = os.RemoveAll(tmp + "/ava-remark42")
@@ -366,11 +367,16 @@ func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
 	astore := adminstore.NewStaticStore("123456", []string{"remark42"}, []string{"a1", "a2"}, "admin@remark-42.com")
 	restrictedWordsMatcher := service.NewRestrictedWordsMatcher(service.StaticRestrictedWordsLister{Words: []string{"duck"}})
 
-	searchService, err := search.NewBleveService(searchIndex, "standard")
+	searchService, err := search.NewSearcher("bleve",
+		search.SearcherParams{
+			IndexPath: searchIndex,
+			Analyzer:  "standard",
+		})
+
 	require.NoError(t, err)
 
 	dataStore := &service.DataStore{
-		Engine:                 searchService.WrapEngine(b),
+		Engine:                 search.WrapEngine(b, searchService),
 		EditDuration:           5 * time.Minute,
 		MaxCommentSize:         4000,
 		AdminStore:             astore,

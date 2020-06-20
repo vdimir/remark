@@ -11,7 +11,6 @@ import (
 	"github.com/blevesearch/bleve/mapping"
 	"github.com/pkg/errors"
 	"github.com/umputun/remark42/backend/app/store"
-	"github.com/umputun/remark42/backend/app/store/engine"
 
 	"github.com/blevesearch/bleve/analysis/analyzer/keyword"
 	bleveStandard "github.com/blevesearch/bleve/analysis/analyzer/standard"
@@ -19,15 +18,15 @@ import (
 	bleveRu "github.com/blevesearch/bleve/analysis/lang/ru"
 )
 
-// BleveService provides search
-type BleveService struct {
+// bleveService provides search using bleve library
+type bleveService struct {
 	index bleve.Index
 }
 
 const commentDocType = "docComment"
 const urlFiledName = "url"
 
-// Avaliable text analyzers.
+// Available text analyzers.
 // Bleve supports a bit more languages that may be added,
 // see https://github.com/blevesearch/bleve/tree/master/analysis/lang
 var analyzerMapping = map[string]string{
@@ -62,14 +61,14 @@ func (d DocumentComment) Type() string {
 	return commentDocType
 }
 
-// NewBleveService returns new BleveService instance
-func NewBleveService(indexPath string, analyzer string) (Searcher, error) {
+// newBleveService returns new bleveService instance
+func newBleveService(indexPath, analyzer string) (Searcher, error) {
 	if _, ok := analyzerMapping[analyzer]; !ok {
 		analyzers := make([]string, 0, len(analyzerMapping))
 		for k := range analyzerMapping {
 			analyzers = append(analyzers, k)
 		}
-		return nil, errors.Errorf("Unknown analyzer: %q. Avaliable analyzers for bleve: %v", analyzer, analyzers)
+		return nil, errors.Errorf("Unknown analyzer: %q. Available analyzers for bleve: %v", analyzer, analyzers)
 	}
 	var index bleve.Index
 	var err error
@@ -88,13 +87,13 @@ func NewBleveService(indexPath string, analyzer string) (Searcher, error) {
 		return nil, errors.Wrap(err, "cannot create/open index")
 	}
 
-	return &BleveService{
+	return &bleveService{
 		index: index,
 	}, nil
 }
 
 // IndexDocument adds or updates document to search index
-func (s *BleveService) IndexDocument(commentID string, comment *store.Comment) error {
+func (s *bleveService) IndexDocument(commentID string, comment *store.Comment) error {
 	doc := DocFromComment(comment)
 	log.Printf("[INFO] index document %s", commentID)
 	return s.index.Index(commentID, doc)
@@ -108,9 +107,9 @@ func createIndexMapping(textAnalyzer string) mapping.IndexMapping {
 	return indexMapping
 }
 
-func textMapping(analyzer string, store bool) *mapping.FieldMapping {
+func textMapping(analyzer string, doStore bool) *mapping.FieldMapping {
 	textFieldMapping := bleve.NewTextFieldMapping()
-	textFieldMapping.Store = store
+	textFieldMapping.Store = doStore
 	textFieldMapping.Analyzer = analyzer
 	return textFieldMapping
 }
@@ -125,7 +124,8 @@ func commentDocumentMapping(textAnalyzer string) *mapping.DocumentMapping {
 	return commentMapping
 }
 
-func (s *BleveService) Search(req *Request) (*ResultPage, error) {
+// Search documents
+func (s *bleveService) Search(req *Request) (*ResultPage, error) {
 	log.Printf("[INFO] searching %v", req)
 
 	bQuery := bleve.NewQueryStringQuery(req.Query)
@@ -151,8 +151,8 @@ func convertBleveSerp(bleveResult *bleve.SearchResult) *ResultPage {
 		Documents: make([]ResultDoc, 0, len(bleveResult.Hits)),
 	}
 	for _, r := range bleveResult.Hits {
-		url, hasUrl := r.Fields[urlFiledName].(string)
-		if !hasUrl {
+		url, hasURL := r.Fields[urlFiledName].(string)
+		if !hasURL {
 			panic(fmt.Sprintf("cannot find %q in %v", urlFiledName, r.Fields))
 		}
 
@@ -172,10 +172,7 @@ func convertBleveSerp(bleveResult *bleve.SearchResult) *ResultPage {
 	return &result
 }
 
-// WrapEngine decorates engine
-func (s *BleveService) WrapEngine(e engine.Interface) engine.Interface {
-	return &EngineDecorator{
-		Interface: e,
-		searcher:  s,
-	}
+// Close search service
+func (s *bleveService) Close() error {
+	return s.index.Close()
 }

@@ -13,13 +13,21 @@ type EngineDecorator struct {
 	searcher Searcher
 }
 
+// WrapEngine decorates engine with EngineDecorator
+func WrapEngine(e engine.Interface, s Searcher) engine.Interface {
+	return &EngineDecorator{
+		Interface: e,
+		searcher:  s,
+	}
+}
+
 // Create comment and add to index
 func (e *EngineDecorator) Create(comment store.Comment) (commentID string, err error) {
 	commentID, err = e.Interface.Create(comment)
 	if err != nil {
 		return commentID, err
 	}
-	if err := e.searcher.IndexDocument(commentID, &comment); err != nil {
+	if err = e.searcher.IndexDocument(commentID, &comment); err != nil {
 		log.Printf("[WARN] failed to add document to index, %v", err)
 	}
 	return commentID, err

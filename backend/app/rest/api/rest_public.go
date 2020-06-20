@@ -462,9 +462,9 @@ func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 
 	key := cache.NewKey(query).ID(URLKey(r)).Scopes(siteID, searchScope)
 	data, err := s.cache.Get(key, func() ([]byte, error) {
-		comments, err := s.dataService.Search(siteID, query)
-		if err != nil {
-			return nil, err
+		comments, searchErr := s.dataService.Search(siteID, query)
+		if searchErr != nil {
+			return nil, searchErr
 		}
 
 		return encodeJSONWithHTML(comments)

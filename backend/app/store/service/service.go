@@ -847,9 +847,14 @@ func (s *DataStore) Last(siteID string, limit int, since time.Time, user store.U
 }
 
 // Search commens using user query
-func (s *DataStore) Search(siteID string, query string) ([]store.Comment, error) {
-	req := &search.Request {
-		Query: query,
+func (s *DataStore) Search(siteID, query string) ([]store.Comment, error) {
+	if s.SearchService == nil {
+		return nil, errors.Errorf("search isn't enabled")
+	}
+
+	req := &search.Request{
+		SiteID: siteID,
+		Query:  query,
 	}
 	serp, err := s.SearchService.Search(req)
 	if err != nil {
@@ -884,6 +889,9 @@ func (s *DataStore) Close() error {
 	}
 	if s.TitleExtractor != nil {
 		errs = multierror.Append(errs, s.TitleExtractor.Close())
+	}
+	if s.SearchService != nil {
+		errs = multierror.Append(errs, s.SearchService.Close())
 	}
 	errs = multierror.Append(errs, s.Engine.Close())
 	return errs.ErrorOrNil()

@@ -3,12 +3,12 @@ package search
 
 import (
 	"github.com/umputun/remark42/backend/app/store"
-	"github.com/umputun/remark42/backend/app/store/engine"
 )
 
 // Request is the input for Search
 type Request struct {
-	Query string
+	SiteID string
+	Query  string
 }
 
 // TokenMatch describes match position
@@ -34,5 +34,5 @@ type ResultPage struct {
 type Searcher interface {
 	IndexDocument(commentID string, comment *store.Comment) error
 	Search(req *Request) (*ResultPage, error)
-	WrapEngine(e engine.Interface) engine.Interface
+	Close() error
 }

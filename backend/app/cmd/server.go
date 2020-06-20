@@ -53,7 +53,7 @@ type ServerCommand struct {
 	SSL          SSLGroup          `group:"ssl" namespace:"ssl" env-namespace:"SSL"`
 	Stream       StreamGroup       `group:"stream" namespace:"stream" env-namespace:"STREAM"`
 	ImageProxy   ImageProxyGroup   `group:"image-proxy" namespace:"image-proxy" env-namespace:"IMAGE_PROXY"`
-	SearchEngine SearchEngineGroup `group:"search-engine" namespace:"search-engine" env-namespace:"SEARN_ENGINE"`
+	SearchEngine SearchEngineGroup `group:"search-engine" namespace:"search-engine" env-namespace:"SEARCH"`
 
 	Sites            []string      `long:"site" env:"SITE" default:"remark" description:"site names" env-delim:","`
 	AnonymousVote    bool          `long:"anon-vote" env:"ANON_VOTE" description:"enable anonymous votes (works only with VOTES_IP enabled)"`
@@ -233,9 +233,9 @@ type RPCGroup struct {
 
 // SearchEngineGroup defines options group for search engine
 type SearchEngineGroup struct {
-	Type      string `long:"type" env:"Type" description:"search engine to use" default:"none"`
+	Engine    string `long:"type" env:"ENGINE" description:"search engine to use" default:"none"`
 	IndexPath string `long:"index_path" env:"INDEX_PATH" default:"./var/comments.index" description:"path to search index"`
-	Analyzer  string `long:"analyzer" env:"ANALYZER" default:"stardard" description:"text analyzer type (language-specific)"`
+	Analyzer  string `long:"analyzer" env:"ANALYZER" default:"standard" description:"text analyzer type (language-specific)"`
 }
 
 // LoadingCache defines interface for caching
@@ -360,7 +360,7 @@ func (s *ServerCommand) newServerApp() (*serverApp, error) {
 	}
 
 	if searchService != nil {
-		storeEngine = searchService.WrapEngine(storeEngine)
+		storeEngine = search.WrapEngine(storeEngine, searchService)
 	}
 
 	dataService := &service.DataStore{
@@ -958,7 +958,7 @@ func (s *ServerCommand) makeAuthenticator(ds *service.DataStore, avas avatar.Sto
 }
 
 func (s *ServerCommand) makeSearchService() (search.Searcher, error) {
-	if s.SearchEngine.Type == "none" {
+	if s.SearchEngine.Engine == "none" {
 		log.Printf("[INFO] search feature disabled")
 		return nil, nil
 	}
@@ -966,13 +966,13 @@ func (s *ServerCommand) makeSearchService() (search.Searcher, error) {
 	if s.SearchEngine.IndexPath == "" {
 		return nil, errors.Errorf("wrong search index path %s", s.SearchEngine.IndexPath)
 	}
-	log.Printf("[INFO] make %q search service", s.SearchEngine.Type)
+	log.Printf("[INFO] make %q search service", s.SearchEngine.Engine)
 
-	switch s.SearchEngine.Type {
-	case "bleve":
-		return search.NewBleveService(s.SearchEngine.IndexPath, s.SearchEngine.Analyzer)
+	params := search.SearcherParams{
+		IndexPath: s.SearchEngine.IndexPath,
+		Analyzer:  s.SearchEngine.Analyzer,
 	}
-	return nil, errors.Errorf("wrong search engine type %q", s.SearchEngine.Type)
+	return search.NewSearcher(s.SearchEngine.Engine, params)
 }
 
 // authRefreshCache used by authenticator to minimize repeatable token refreshes

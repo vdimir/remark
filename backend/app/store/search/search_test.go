@@ -1,6 +1,7 @@
 package search
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -76,11 +77,51 @@ func TestSearch_SiteMux(t *testing.T) {
 
 		res, err = searcher.Search(&Request{SiteID: "test-site2", Query: "123", Limit: 3})
 		require.NoError(t, err)
-		require.Len(t, res.Documents, 0)
+		assert.Len(t, res.Documents, 0)
 	}
 	{
 		res, err := searcher.Search(&Request{SiteID: "test-site3", Query: "345", Limit: 3})
 		require.NoError(t, err)
-		require.Len(t, res.Documents, 0)
+		assert.Len(t, res.Documents, 0)
+	}
+}
+
+func TestSearch_Paginate(t *testing.T) {
+	searcher, teardown := createTestService(t)
+	defer teardown()
+	t0 := time.Date(2017, 12, 20, 15, 18, 24, 0, time.Local)
+	for shift := 0; shift < 4; shift++ {
+		cid := fmt.Sprintf("comment%d", shift)
+		searcher.IndexDocument(cid, &store.Comment{
+			ID:        cid,
+			Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post1"},
+			Text:      "text 123",
+			User:      store.User{ID: "u1", Name: "user1"},
+			Timestamp: t0.Add(time.Duration(shift) * time.Minute),
+		})
+	}
+	{
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, From: 0})
+		require.NoError(t, err)
+		require.Len(t, res.Documents, 1)
+		assert.Equal(t, "comment0", res.Documents[0].ID)
+	}
+	{
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, From: 1})
+		require.NoError(t, err)
+		require.Len(t, res.Documents, 1)
+		assert.Equal(t, "comment1", res.Documents[0].ID)
+	}
+	{
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, From: 3})
+		require.NoError(t, err)
+		require.Len(t, res.Documents, 1)
+		assert.Equal(t, "comment3", res.Documents[0].ID)
+	}
+	{
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 2, From: 1, SortBy: "-timestamp"})
+		require.NoError(t, err)
+		require.Len(t, res.Documents, 2)
+		assert.Equal(t, []string{"comment2", "comment1"}, []string{res.Documents[0].ID, res.Documents[1].ID})
 	}
 }

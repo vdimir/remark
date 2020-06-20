@@ -847,7 +847,7 @@ func (s *DataStore) Last(siteID string, limit int, since time.Time, user store.U
 }
 
 // Search commens using user query
-func (s *DataStore) Search(siteID, query, sortBy string, limit int) ([]store.Comment, error) {
+func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) ([]store.Comment, error) {
 	if s.SearchService == nil {
 		return nil, errors.Errorf("search isn't enabled")
 	}
@@ -857,6 +857,7 @@ func (s *DataStore) Search(siteID, query, sortBy string, limit int) ([]store.Com
 		Query:  query,
 		SortBy: sortBy,
 		Limit:  limit,
+		From:   from,
 	}
 	serp, err := s.SearchService.Search(req)
 	if err != nil {

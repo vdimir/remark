@@ -183,7 +183,7 @@ func (s *bleveService) Close() error {
 }
 
 func validateSortField(sortBy string, possible ...string) bool {
-	if len(sortBy) == 0 {
+	if sortBy == "" {
 		return false
 	}
 	if sortBy[0] == '-' || sortBy[0] == '+' {

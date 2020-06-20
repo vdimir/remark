@@ -45,7 +45,7 @@ type pubStore interface {
 	Count(locator store.Locator) (int, error)
 	List(siteID string, limit int, skip int) ([]store.PostInfo, error)
 	Info(locator store.Locator, readonlyAge int) (store.PostInfo, error)
-	Search(siteID, query, sortBy string, limit int) ([]store.Comment, error)
+	Search(siteID, query, sortBy string, from, limit int) ([]store.Comment, error)
 
 	ValidateComment(c *store.Comment) error
 	IsReadOnly(locator store.Locator) bool
@@ -454,14 +454,12 @@ func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("query")
 	sortBy := r.URL.Query().Get("sort")
 
-	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
-	if err != nil {
-		limit = 20
-	}
+	limit := s.getNumericParam(r, "limit", 20)
+	from := s.getNumericParam(r, "from", 0)
 
 	key := cache.NewKey(query).ID(URLKey(r)).Scopes(siteID, searchScope)
 	data, err := s.cache.Get(key, func() ([]byte, error) {
-		comments, searchErr := s.dataService.Search(siteID, query, sortBy, limit)
+		comments, searchErr := s.dataService.Search(siteID, query, sortBy, from, limit)
 		if searchErr != nil {
 			return nil, searchErr
 		}
@@ -524,4 +522,12 @@ func (s *public) parseSince(r *http.Request) (time.Time, error) {
 		sinceTS = time.Unix(unixTS/1000, 1000000*(unixTS%1000)) // since param in msec timestamp
 	}
 	return sinceTS, nil
+}
+
+func (s *public) getNumericParam(r *http.Request, name string, defaultVal int) int {
+	res, err := strconv.Atoi(r.URL.Query().Get(name))
+	if err != nil {
+		return defaultVal
+	}
+	return res
 }

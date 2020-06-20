@@ -58,28 +58,28 @@ func TestSearch_SiteMux(t *testing.T) {
 		Timestamp: time.Date(2017, 12, 20, 15, 20, 28, 0, time.Local),
 	})
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123"})
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 3})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 1)
 		assert.Equal(t, "123456", res.Documents[0].ID)
 
-		res, err = searcher.Search(&Request{SiteID: "test-site", Query: "345"})
+		res, err = searcher.Search(&Request{SiteID: "test-site", Query: "345", Limit: 3})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 0)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site2", Query: "345"})
+		res, err := searcher.Search(&Request{SiteID: "test-site2", Query: "345", SortBy: "-timestamp", Limit: 3})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 2)
 		assert.Equal(t, "123457", res.Documents[0].ID)
 		assert.Equal(t, "123456", res.Documents[1].ID)
 
-		res, err = searcher.Search(&Request{SiteID: "test-site2", Query: "123"})
+		res, err = searcher.Search(&Request{SiteID: "test-site2", Query: "123", Limit: 3})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 0)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site3", Query: "345"})
+		res, err := searcher.Search(&Request{SiteID: "test-site3", Query: "345", Limit: 3})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 0)
 	}

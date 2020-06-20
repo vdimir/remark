@@ -129,11 +129,12 @@ func (s *bleveService) Search(req *Request) (*ResultPage, error) {
 	log.Printf("[INFO] searching %v", req)
 
 	bQuery := bleve.NewQueryStringQuery(req.Query)
-	bReq := bleve.NewSearchRequest(bQuery)
+	bReq := bleve.NewSearchRequestOptions(bQuery, req.Limit, req.From, false)
 
-	switch req.SortBy {
-	case "-timestamp", "+timestamp":
+	if validateSortField(req.SortBy, "timestamp") {
 		bReq.SortBy([]string{req.SortBy})
+	} else if req.SortBy != "" {
+		log.Printf("[WARN] unknows sort field %q", req.SortBy)
 	}
 
 	bReq.Fields = append(bReq.Fields, urlFiledName)
@@ -179,4 +180,19 @@ func convertBleveSerp(bleveResult *bleve.SearchResult) *ResultPage {
 // Close search service
 func (s *bleveService) Close() error {
 	return s.index.Close()
+}
+
+func validateSortField(sortBy string, possible ...string) bool {
+	if len(sortBy) == 0 {
+		return false
+	}
+	if sortBy[0] == '-' || sortBy[0] == '+' {
+		sortBy = sortBy[1:]
+	}
+	for _, e := range possible {
+		if sortBy == e {
+			return true
+		}
+	}
+	return false
 }

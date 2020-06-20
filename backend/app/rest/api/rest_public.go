@@ -45,7 +45,7 @@ type pubStore interface {
 	Count(locator store.Locator) (int, error)
 	List(siteID string, limit int, skip int) ([]store.PostInfo, error)
 	Info(locator store.Locator, readonlyAge int) (store.PostInfo, error)
-	Search(siteID, query, sortBy string) ([]store.Comment, error)
+	Search(siteID, query, sortBy string, limit int) ([]store.Comment, error)
 
 	ValidateComment(c *store.Comment) error
 	IsReadOnly(locator store.Locator) bool
@@ -459,11 +459,9 @@ func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 		limit = 20
 	}
 
-	log.Printf("[INFO] search comments for %s, query %q, limit %d", siteID, query, limit)
-
 	key := cache.NewKey(query).ID(URLKey(r)).Scopes(siteID, searchScope)
 	data, err := s.cache.Get(key, func() ([]byte, error) {
-		comments, searchErr := s.dataService.Search(siteID, query, sortBy)
+		comments, searchErr := s.dataService.Search(siteID, query, sortBy, limit)
 		if searchErr != nil {
 			return nil, searchErr
 		}

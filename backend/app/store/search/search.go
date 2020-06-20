@@ -10,6 +10,8 @@ type Request struct {
 	SiteID string
 	Query  string
 	SortBy string
+	From   int
+	Limit  int
 }
 
 // TokenMatch describes match position

@@ -968,7 +968,16 @@ func TestRest_Search(t *testing.T) {
 		assert.Equal(t, []string{id2, id1}, []string{comments[0].ID, comments[1].ID})
 	}
 	{
-		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=+timestamp")
+		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=-timestamp&limit=1")
+		require.Equal(t, 200, code)
+
+		err = json.Unmarshal([]byte(res), &comments)
+		assert.NoError(t, err)
+		require.Equal(t, 1, len(comments), "should have 1 comments")
+		assert.Equal(t, id2, comments[0].ID)
+	}
+	{
+		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=timestamp")
 		require.Equal(t, 200, code)
 
 		err = json.Unmarshal([]byte(res), &comments)

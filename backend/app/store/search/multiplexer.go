@@ -1,8 +1,8 @@
 package search
 
 import (
-	"crypto/sha1"
 	"encoding/hex"
+	"hash/fnv"
 	"path"
 
 	log "github.com/go-pkgz/lgr"
@@ -27,8 +27,8 @@ type multiplexer struct {
 }
 
 func encodeSiteID(siteID string) string {
-	h := sha1.Sum([]byte(siteID))
-	return hex.EncodeToString(h[:])[:16]
+	h := fnv.New32().Sum([]byte(siteID))
+	return hex.EncodeToString(h)
 }
 
 var engineMap map[string]searcherFactory = map[string]searcherFactory{
@@ -42,11 +42,11 @@ var engineMap map[string]searcherFactory = map[string]searcherFactory{
 func NewSearcher(engine string, params SearcherParams) (Searcher, error) {
 	f, has := engineMap[engine]
 	if !has {
-		avaliable := []string{}
+		available := []string{}
 		for k := range engineMap {
-			avaliable = append(avaliable, k)
+			available = append(available, k)
 		}
-		return nil, errors.Errorf("no search engine %q, avalibale engines %v", engine, avaliable)
+		return nil, errors.Errorf("no search engine %q, available engines %v", engine, available)
 	}
 	return &multiplexer{
 		shards:  map[string]Searcher{},
@@ -87,7 +87,8 @@ func (s *multiplexer) getOrCreate(siteID string) (Searcher, error) {
 	searcher, has := s.shards[siteID]
 	if !has {
 		log.Printf("[INFO] creating new searcher for site %q", siteID)
-		searcher, err := s.factory(siteID, s.params)
+		var err error
+		searcher, err = s.factory(siteID, s.params)
 		if err != nil {
 			return nil, err
 		}

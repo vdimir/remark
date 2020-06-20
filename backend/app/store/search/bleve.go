@@ -130,7 +130,11 @@ func (s *bleveService) Search(req *Request) (*ResultPage, error) {
 
 	bQuery := bleve.NewQueryStringQuery(req.Query)
 	bReq := bleve.NewSearchRequest(bQuery)
-	bReq.SortBy([]string{"-timestamp"})
+
+	switch req.SortBy {
+	case "-timestamp", "+timestamp":
+		bReq.SortBy([]string{req.SortBy})
+	}
 
 	bReq.Fields = append(bReq.Fields, urlFiledName)
 

@@ -9,6 +9,7 @@ import (
 type Request struct {
 	SiteID string
 	Query  string
+	SortBy string
 }
 
 // TokenMatch describes match position

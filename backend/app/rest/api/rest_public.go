@@ -45,7 +45,7 @@ type pubStore interface {
 	Count(locator store.Locator) (int, error)
 	List(siteID string, limit int, skip int) ([]store.PostInfo, error)
 	Info(locator store.Locator, readonlyAge int) (store.PostInfo, error)
-	Search(siteID string, query string) ([]store.Comment, error)
+	Search(siteID, query, sortBy string) ([]store.Comment, error)
 
 	ValidateComment(c *store.Comment) error
 	IsReadOnly(locator store.Locator) bool
@@ -452,6 +452,7 @@ func (s *public) loadPictureCtrl(w http.ResponseWriter, r *http.Request) {
 func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 	siteID := r.URL.Query().Get("site")
 	query := r.URL.Query().Get("query")
+	sortBy := r.URL.Query().Get("sort")
 
 	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
 	if err != nil {
@@ -462,7 +463,7 @@ func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 
 	key := cache.NewKey(query).ID(URLKey(r)).Scopes(siteID, searchScope)
 	data, err := s.cache.Get(key, func() ([]byte, error) {
-		comments, searchErr := s.dataService.Search(siteID, query)
+		comments, searchErr := s.dataService.Search(siteID, query, sortBy)
 		if searchErr != nil {
 			return nil, searchErr
 		}

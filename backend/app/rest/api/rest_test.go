@@ -334,10 +334,10 @@ func TestRest_cacheControl(t *testing.T) {
 
 }
 
-// randomFileName pick a file name which is not in use for sure
-func randomFileName(tempDir, basename string) (string, error) {
+// randomPath pick a file or folder name which is not in use for sure
+func randomPath(tempDir, basename, suffix string) (string, error) {
 	for i := 0; i < 10; i++ {
-		fname := fmt.Sprintf("/%s/%s-%d.db", tempDir, basename, rand.Int31())
+		fname := fmt.Sprintf("/%s/%s-%d%s", tempDir, basename, rand.Int31(), suffix)
 		fmt.Printf("fname %q", fname)
 		_, err := os.Stat(fname)
 		if err != nil {
@@ -350,10 +350,10 @@ func randomFileName(tempDir, basename string) (string, error) {
 func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
 	tmp := os.TempDir()
 
-	testDB, err := randomFileName(tmp, "test-remark")
+	testDB, err := randomPath(tmp, "test-remark", ".db")
 	require.NoError(t, err)
 
-	searchIndex, err := randomFileName(tmp, "test-search-remark")
+	searchIndex, err := randomPath(tmp, "test-search-remark", "/")
 	require.NoError(t, err)
 
 	_ = os.RemoveAll(tmp + "/ava-remark42")

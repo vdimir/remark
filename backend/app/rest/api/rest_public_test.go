@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -923,17 +924,20 @@ func TestRest_Search(t *testing.T) {
 
 	var err error
 	var comments []store.Comment
-
+	t0 := time.Date(2017, 12, 20, 15, 18, 24, 0, time.Local)
 	c1 := store.Comment{Text: "test test foo", ParentID: "",
-		Locator: store.Locator{SiteID: "remark42", URL: "https://radio-t.com/blah1"}}
+		Locator:   store.Locator{SiteID: "remark42", URL: "https://radio-t.com/blah1"},
+		Timestamp: t0}
 	id1 := addComment(t, c1, ts)
 
 	c2 := store.Comment{Text: "test test bar", ParentID: id1,
-		Locator: store.Locator{SiteID: "remark42", URL: "https://radio-t.com/blah1"}}
+		Locator:   store.Locator{SiteID: "remark42", URL: "https://radio-t.com/blah1"},
+		Timestamp: t0.Add(time.Minute)}
 	id2 := addComment(t, c2, ts)
 
 	c3 := store.Comment{Text: "go to the bar", ParentID: "",
-		Locator: store.Locator{SiteID: "remark42", URL: "https://radio-t.com/blah1"}}
+		Locator:   store.Locator{SiteID: "remark42", URL: "https://radio-t.com/blah1"},
+		Timestamp: t0.Add(2 * time.Minute)}
 	id3 := addComment(t, c3, ts)
 
 	{
@@ -943,8 +947,7 @@ func TestRest_Search(t *testing.T) {
 		err = json.Unmarshal([]byte(res), &comments)
 		assert.NoError(t, err)
 		require.Equal(t, 2, len(comments), "should have 2 comments")
-		assert.Equal(t, id3, comments[0].ID)
-		assert.Equal(t, id2, comments[1].ID)
+		equalsStringSliceUnordered(t, []string{id2, id3}, []string{comments[0].ID, comments[1].ID})
 	}
 	{
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test")
@@ -953,8 +956,25 @@ func TestRest_Search(t *testing.T) {
 		err = json.Unmarshal([]byte(res), &comments)
 		assert.NoError(t, err)
 		require.Equal(t, 2, len(comments), "should have 2 comments")
-		assert.Equal(t, id2, comments[0].ID)
-		assert.Equal(t, id1, comments[1].ID)
+		equalsStringSliceUnordered(t, []string{id1, id2}, []string{comments[0].ID, comments[1].ID})
+	}
+	{
+		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=-timestamp")
+		require.Equal(t, 200, code)
+
+		err = json.Unmarshal([]byte(res), &comments)
+		assert.NoError(t, err)
+		require.Equal(t, 2, len(comments), "should have 2 comments")
+		assert.Equal(t, []string{id2, id1}, []string{comments[0].ID, comments[1].ID})
+	}
+	{
+		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=+timestamp")
+		require.Equal(t, 200, code)
+
+		err = json.Unmarshal([]byte(res), &comments)
+		assert.NoError(t, err)
+		require.Equal(t, 2, len(comments), "should have 2 comments")
+		assert.Equal(t, []string{id1, id2}, []string{comments[0].ID, comments[1].ID})
 	}
 }
 
@@ -965,4 +985,14 @@ func postComment(t *testing.T, url string) {
 	b, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, resp.StatusCode, string(b))
+}
+
+// equalsStringSliceUnordered chechs equality of two string sets
+// Note: passed slices are modified
+func equalsStringSliceUnordered(t *testing.T, expected, actual []string) {
+	if assert.Equal(t, len(expected), len(actual)) {
+		sort.StringSlice(expected).Sort()
+		sort.StringSlice(actual).Sort()
+		assert.Equal(t, expected, actual)
+	}
 }

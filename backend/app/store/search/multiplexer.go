@@ -1,10 +1,6 @@
 package search
 
 import (
-	"encoding/hex"
-	"hash/fnv"
-	"path"
-
 	log "github.com/go-pkgz/lgr"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -26,35 +22,6 @@ type multiplexer struct {
 	params  SearcherParams
 }
 
-func encodeSiteID(siteID string) string {
-	h := fnv.New32().Sum([]byte(siteID))
-	return hex.EncodeToString(h)
-}
-
-var engineMap map[string]searcherFactory = map[string]searcherFactory{
-	"bleve": func(siteID string, p SearcherParams) (Searcher, error) {
-		fpath := path.Join(p.IndexPath, encodeSiteID(siteID))
-		return newBleveService(fpath, p.Analyzer)
-	},
-}
-
-// NewSearcher creates new searcher with specified type and parameters
-func NewSearcher(engine string, params SearcherParams) (Searcher, error) {
-	f, has := engineMap[engine]
-	if !has {
-		available := []string{}
-		for k := range engineMap {
-			available = append(available, k)
-		}
-		return nil, errors.Errorf("no search engine %q, available engines %v", engine, available)
-	}
-	return &multiplexer{
-		shards:  map[string]Searcher{},
-		factory: f,
-		params:  params,
-	}, nil
-}
-
 func (s *multiplexer) IndexDocument(commentID string, comment *store.Comment) error {
 	searcher, err := s.getOrCreate(comment.Locator.SiteID)
 	if err != nil {
@@ -70,6 +37,13 @@ func (s *multiplexer) Search(req *Request) (*ResultPage, error) {
 	}
 	return searcher.Search(req)
 
+}
+
+func (s *multiplexer) Delete(siteID, commentID string) error {
+	if inner, has := s.shards[siteID]; has {
+		return inner.Delete(siteID, commentID)
+	}
+	return nil
 }
 
 func (s *multiplexer) Close() error {

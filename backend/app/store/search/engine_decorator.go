@@ -44,3 +44,14 @@ func (e *EngineDecorator) Update(comment store.Comment) error {
 	}
 	return nil
 }
+
+// Delete comment from storage and index
+func (e *EngineDecorator) Delete(req engine.DeleteRequest) error {
+	if err := e.Interface.Delete(req); err != nil {
+		return err
+	}
+	if req.Locator.SiteID == "" || req.CommentID == "" {
+		return nil
+	}
+	return e.searcher.Delete(req.Locator.SiteID, req.CommentID)
+}

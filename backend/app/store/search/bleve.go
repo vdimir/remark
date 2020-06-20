@@ -177,6 +177,14 @@ func convertBleveSerp(bleveResult *bleve.SearchResult) *ResultPage {
 	return &result
 }
 
+// Delete comment from index
+func (s *bleveService) Delete(siteID, commentID string) error {
+	if err := s.index.Delete(commentID); err != nil {
+		return errors.Wrapf(err, "cannot detele comment (id: %q, site: %q) from search index", commentID, siteID)
+	}
+	return nil
+}
+
 // Close search service
 func (s *bleveService) Close() error {
 	return s.index.Close()

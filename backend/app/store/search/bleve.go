@@ -18,8 +18,8 @@ import (
 	bleveRu "github.com/blevesearch/bleve/analysis/lang/ru"
 )
 
-// bleveService provides search using bleve library
-type bleveService struct {
+// bleveEngine provides search using bleve library
+type bleveEngine struct {
 	index bleve.Index
 }
 
@@ -61,17 +61,16 @@ func (d DocumentComment) Type() string {
 	return commentDocType
 }
 
-// newBleveService returns new bleveService instance
-func newBleveService(indexPath, analyzer string) (Searcher, error) {
+// newBleveService returns new bleveEngine instance
+func newBleveService(indexPath, analyzer string) (s searchEngine, opened bool, err error) {
 	if _, ok := analyzerMapping[analyzer]; !ok {
 		analyzers := make([]string, 0, len(analyzerMapping))
 		for k := range analyzerMapping {
 			analyzers = append(analyzers, k)
 		}
-		return nil, errors.Errorf("Unknown analyzer: %q. Available analyzers for bleve: %v", analyzer, analyzers)
+		return nil, opened, errors.Errorf("Unknown analyzer: %q. Available analyzers for bleve: %v", analyzer, analyzers)
 	}
 	var index bleve.Index
-	var err error
 
 	if _, errOpen := os.Stat(indexPath); os.IsNotExist(errOpen) {
 		log.Printf("[INFO] creating new search index %s", indexPath)
@@ -79,21 +78,22 @@ func newBleveService(indexPath, analyzer string) (Searcher, error) {
 	} else if errOpen == nil {
 		log.Printf("[INFO] opening existing search index %s", indexPath)
 		index, err = bleve.Open(indexPath)
+		opened = true
 	} else {
 		err = errOpen
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot create/open index")
+		return nil, opened, errors.Wrap(err, "cannot create/open index")
 	}
 
-	return &bleveService{
+	return &bleveEngine{
 		index: index,
-	}, nil
+	}, opened, nil
 }
 
 // IndexDocument adds or updates document to search index
-func (s *bleveService) IndexDocument(commentID string, comment *store.Comment) error {
+func (s *bleveEngine) IndexDocument(commentID string, comment *store.Comment) error {
 	doc := DocFromComment(comment)
 	log.Printf("[INFO] index document %s", commentID)
 	return s.index.Index(commentID, doc)
@@ -125,7 +125,7 @@ func commentDocumentMapping(textAnalyzer string) *mapping.DocumentMapping {
 }
 
 // Search documents
-func (s *bleveService) Search(req *Request) (*ResultPage, error) {
+func (s *bleveEngine) Search(req *Request) (*ResultPage, error) {
 	log.Printf("[INFO] searching %v", req)
 
 	bQuery := bleve.NewQueryStringQuery(req.Query)
@@ -178,15 +178,15 @@ func convertBleveSerp(bleveResult *bleve.SearchResult) *ResultPage {
 }
 
 // Delete comment from index
-func (s *bleveService) Delete(siteID, commentID string) error {
+func (s *bleveEngine) Delete(commentID string) error {
 	if err := s.index.Delete(commentID); err != nil {
-		return errors.Wrapf(err, "cannot detele comment (id: %q, site: %q) from search index", commentID, siteID)
+		return errors.Wrapf(err, "cannot detele comment %q from search index", commentID)
 	}
 	return nil
 }
 
 // Close search service
-func (s *bleveService) Close() error {
+func (s *bleveEngine) Close() error {
 	return s.index.Close()
 }
 

@@ -22,6 +22,7 @@ import (
 	"github.com/umputun/remark42/backend/app/rest"
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/image"
+	"github.com/umputun/remark42/backend/app/store/search"
 	"github.com/umputun/remark42/backend/app/store/service"
 )
 
@@ -466,8 +467,9 @@ func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 
 		return encodeJSONWithHTML(comments)
 	})
-
-	if err != nil {
+	if _, ok := err.(search.NotReadyError); ok {
+		rest.SendErrorJSON(w, r, http.StatusBadRequest, err, "search service not ready", rest.ErrInternal)
+	} else if err != nil {
 		rest.SendErrorJSON(w, r, http.StatusInternalServerError, err, "can't perform search request", rest.ErrInternal)
 		return
 	}

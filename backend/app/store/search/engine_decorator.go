@@ -10,11 +10,11 @@ import (
 // EngineDecorator proxies requests to engine.Interface and index incoming data
 type EngineDecorator struct {
 	engine.Interface
-	searcher Searcher
+	searcher *Service
 }
 
 // WrapEngine decorates engine with EngineDecorator
-func WrapEngine(e engine.Interface, s Searcher) engine.Interface {
+func WrapEngine(e engine.Interface, s *Service) engine.Interface {
 	return &EngineDecorator{
 		Interface: e,
 		searcher:  s,

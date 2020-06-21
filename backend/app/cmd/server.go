@@ -528,6 +528,15 @@ func (a *serverApp) run(ctx context.Context) error {
 
 	go a.imageService.Cleanup(ctx) // pictures cleanup for staging images
 
+	go func() {
+		err := a.dataService.SearchService.PrepareColdstart(ctx, a.dataService.Engine)
+
+		log.Printf("[INFO] all documents indexed")
+		if err != nil {
+			log.Printf("[ERROR] errors ocured during indexing %v", err)
+		}
+	}()
+
 	a.restSrv.Run(a.Port)
 
 	// shutdown procedures after HTTP server is stopped
@@ -957,7 +966,7 @@ func (s *ServerCommand) makeAuthenticator(ds *service.DataStore, avas avatar.Sto
 	return authenticator, nil
 }
 
-func (s *ServerCommand) makeSearchService() (search.Searcher, error) {
+func (s *ServerCommand) makeSearchService() (*search.Service, error) {
 	if s.SearchEngine.Engine == "none" {
 		log.Printf("[INFO] search feature disabled")
 		return nil, nil
@@ -971,6 +980,7 @@ func (s *ServerCommand) makeSearchService() (search.Searcher, error) {
 	params := search.SearcherParams{
 		IndexPath: s.SearchEngine.IndexPath,
 		Analyzer:  s.SearchEngine.Analyzer,
+		Sites:     s.Sites,
 	}
 	return search.NewSearcher(s.SearchEngine.Engine, params)
 }

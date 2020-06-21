@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -371,8 +372,13 @@ func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
 		search.SearcherParams{
 			IndexPath: searchIndex,
 			Analyzer:  "standard",
+			Sites:     []string{"remark42"},
 		})
 
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err = searchService.PrepareColdstart(ctx, b)
 	require.NoError(t, err)
 
 	dataStore := &service.DataStore{

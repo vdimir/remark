@@ -2,11 +2,6 @@
 package search
 
 import (
-	"encoding/hex"
-	"hash/fnv"
-	"path"
-
-	"github.com/pkg/errors"
 	"github.com/umputun/remark42/backend/app/store"
 )
 
@@ -38,39 +33,11 @@ type ResultPage struct {
 	Documents []ResultDoc `json:"documetns"`
 }
 
-// Searcher provides common interface for search engines
-type Searcher interface {
+// searchEngine provides core interface for search engines
+type searchEngine interface {
 	IndexDocument(commentID string, comment *store.Comment) error
 	Search(req *Request) (*ResultPage, error)
-	Delete(siteID, commentID string) error
+	Delete(commentID string) error
+
 	Close() error
-}
-
-func encodeSiteID(siteID string) string {
-	h := fnv.New32().Sum([]byte(siteID))
-	return hex.EncodeToString(h)
-}
-
-var engineMap map[string]searcherFactory = map[string]searcherFactory{
-	"bleve": func(siteID string, p SearcherParams) (Searcher, error) {
-		fpath := path.Join(p.IndexPath, encodeSiteID(siteID))
-		return newBleveService(fpath, p.Analyzer)
-	},
-}
-
-// NewSearcher creates new searcher with specified type and parameters
-func NewSearcher(engine string, params SearcherParams) (Searcher, error) {
-	f, has := engineMap[engine]
-	if !has {
-		available := []string{}
-		for k := range engineMap {
-			available = append(available, k)
-		}
-		return nil, errors.Errorf("no search engine %q, available engines %v", engine, available)
-	}
-	return &multiplexer{
-		shards:  map[string]Searcher{},
-		factory: f,
-		params:  params,
-	}, nil
 }

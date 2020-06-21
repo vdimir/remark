@@ -37,7 +37,7 @@ type DataStore struct {
 	TitleExtractor         *TitleExtractor
 	RestrictedWordsMatcher *RestrictedWordsMatcher
 	ImageService           *image.Service
-	SearchService          search.Searcher
+	SearchService          *search.Service
 
 	// granular locks
 	scopedLocks struct {

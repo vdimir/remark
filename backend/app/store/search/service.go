@@ -102,6 +102,13 @@ const maxErrsDuringStartup = 20
 
 // PrepareColdstart creates missing indexes and index existing documents
 func (s *Service) PrepareColdstart(ctx context.Context, e engine.Interface) error {
+	/* TODO(@vdimir)
+	 * This impmlementation could leave index inconsistent with storage
+	 * Consider this situation:
+	 * Some comment retrieved from storage during coldstart and had changed,
+	 * but changed version indexed before initial that is stored in DB.
+	 * So initial version would rewrite changes.
+	 */
 	if s.ready {
 		log.Printf("[INFO] index already ready for all sites")
 		return nil

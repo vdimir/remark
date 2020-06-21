@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/umputun/remark42/backend/app/store"
+	"github.com/umputun/remark42/backend/app/store/search"
 	"github.com/umputun/remark42/backend/app/store/service"
 )
 
@@ -919,10 +921,30 @@ func TestRest_LastCommentsStreamSince(t *testing.T) {
 }
 
 func TestRest_Search(t *testing.T) {
-	ts, _, teardown := startupT(t)
+	tmp := os.TempDir()
+
+	searchIndex, err := randomPath(tmp, "test-search-remark", "/")
+	require.NoError(t, err)
+
+	addSearchService := func(ds *service.DataStore) {
+		ds.SearchService, err = search.NewSearcher("bleve",
+			search.SearcherParams{
+				IndexPath: searchIndex,
+				Analyzer:  "standard",
+				Sites:     []string{"remark42"},
+			})
+
+		require.NoError(t, err)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		err = ds.SearchService.PrepareColdstart(ctx, ds.Engine)
+		require.NoError(t, err)
+		ds.Engine = search.WrapEngine(ds.Engine, ds.SearchService)
+	}
+	ts, _, teardown := startupTMutDs(t, addSearchService)
+
 	defer teardown()
 
-	var err error
 	serp := service.SearchResultPage{}
 	t0 := time.Date(2017, 12, 20, 15, 18, 24, 0, time.Local)
 	c1 := store.Comment{Text: "test test foo", ParentID: "",

@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -36,7 +35,6 @@ import (
 	adminstore "github.com/umputun/remark42/backend/app/store/admin"
 	"github.com/umputun/remark42/backend/app/store/engine"
 	"github.com/umputun/remark42/backend/app/store/image"
-	"github.com/umputun/remark42/backend/app/store/search"
 	"github.com/umputun/remark42/backend/app/store/service"
 )
 
@@ -349,12 +347,13 @@ func randomPath(tempDir, basename, suffix string) (string, error) {
 }
 
 func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
+	return startupTMutDs(t, func(*service.DataStore) {})
+}
+
+func startupTMutDs(t *testing.T, fn func(*service.DataStore)) (ts *httptest.Server, srv *Rest, teardown func()) {
 	tmp := os.TempDir()
 
 	testDB, err := randomPath(tmp, "test-remark", ".db")
-	require.NoError(t, err)
-
-	searchIndex, err := randomPath(tmp, "test-search-remark", "/")
 	require.NoError(t, err)
 
 	_ = os.RemoveAll(tmp + "/ava-remark42")
@@ -368,28 +367,16 @@ func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
 	astore := adminstore.NewStaticStore("123456", []string{"remark42"}, []string{"a1", "a2"}, "admin@remark-42.com")
 	restrictedWordsMatcher := service.NewRestrictedWordsMatcher(service.StaticRestrictedWordsLister{Words: []string{"duck"}})
 
-	searchService, err := search.NewSearcher("bleve",
-		search.SearcherParams{
-			IndexPath: searchIndex,
-			Analyzer:  "standard",
-			Sites:     []string{"remark42"},
-		})
-
-	require.NoError(t, err)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	err = searchService.PrepareColdstart(ctx, b)
-	require.NoError(t, err)
-
 	dataStore := &service.DataStore{
-		Engine:                 search.WrapEngine(b, searchService),
+		Engine:                 b,
 		EditDuration:           5 * time.Minute,
 		MaxCommentSize:         4000,
 		AdminStore:             astore,
 		MaxVotes:               service.UnlimitedVotes,
 		RestrictedWordsMatcher: restrictedWordsMatcher,
-		SearchService:          searchService,
 	}
+
+	fn(dataStore)
 
 	srv = &Rest{
 		DataService: dataStore,
@@ -438,7 +425,6 @@ func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
 		ts.Close()
 		require.NoError(t, srv.DataService.Close())
 		_ = os.Remove(testDB)
-		_ = os.RemoveAll(searchIndex)
 		_ = os.RemoveAll(tmp + "/ava-remark42")
 		_ = os.RemoveAll(tmp + "/pics-remark42")
 	}

@@ -528,14 +528,16 @@ func (a *serverApp) run(ctx context.Context) error {
 
 	go a.imageService.Cleanup(ctx) // pictures cleanup for staging images
 
-	go func() {
-		err := a.dataService.SearchService.PrepareColdstart(ctx, a.dataService.Engine)
+	if a.dataService.SearchService != nil {
+		go func() {
+			err := a.dataService.SearchService.PrepareColdstart(ctx, a.dataService.Engine)
 
-		log.Printf("[INFO] all documents indexed")
-		if err != nil {
-			log.Printf("[ERROR] errors ocured during indexing %v", err)
-		}
-	}()
+			log.Printf("[INFO] all documents indexed")
+			if err != nil {
+				log.Printf("[ERROR] errors ocured during indexing %v", err)
+			}
+		}()
+	}
 
 	a.restSrv.Run(a.Port)
 

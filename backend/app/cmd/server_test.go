@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -18,6 +19,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-pkgz/auth/token"
 	"github.com/umputun/go-flags"
+	"github.com/umputun/remark42/backend/app/store"
 	"go.uber.org/goleak"
 
 	"github.com/stretchr/testify/assert"
@@ -332,7 +334,18 @@ func TestServerApp_Failed(t *testing.T) {
 }
 
 func TestServerApp_Shutdown(t *testing.T) {
+	indexPath := os.TempDir() + "/remark-search-test"
+	_ = os.RemoveAll(indexPath)
+	defer func() {
+		_ = os.RemoveAll(indexPath)
+	}()
+
 	app, ctx, cancel := prepServerApp(t, func(o ServerCommand) ServerCommand {
+		o.SearchEngine = SearchEngineGroup{
+			Engine:    "bleve",
+			IndexPath: indexPath,
+			Analyzer:  "standard",
+		}
 		o.Port = chooseRandomUnusedPort()
 		return o
 	})
@@ -561,6 +574,83 @@ func TestServer_loadEmailTemplate(t *testing.T) {
 	assert.Equal(t, r, "")
 }
 
+func TestServerApp_SearchColdstart(t *testing.T) {
+	indexPath := os.TempDir() + "/remark-search-test"
+	_ = os.RemoveAll(indexPath)
+	defer func() {
+		_ = os.RemoveAll(indexPath)
+	}()
+
+	port := chooseRandomUnusedPort()
+
+	app, ctx, cancel := prepServerApp(t, func(o ServerCommand) ServerCommand {
+		o.Port = port
+		return o
+	})
+	go func() { _ = app.run(ctx) }()
+	waitForHTTPServerStart(port)
+	// search engine not ready
+
+	get := func(path string) (int, string) {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/api/v1/%s", port, path))
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+		return resp.StatusCode, string(body)
+	}
+	code, body := get("search?site=remark&query=text")
+	assert.Truef(t, code == http.StatusBadRequest, "status code expected to be 4xx, (actual: %d)", code)
+	assert.Contains(t, body, "search not enabled")
+
+	for i := 1; i < 42; i++ {
+		uid := fmt.Sprintf("user%d", i%7)
+		_, err := app.dataService.Engine.Create(store.Comment{
+			ID:      fmt.Sprintf("comment%d", i),
+			Text:    fmt.Sprintf("test test %d", i*100),
+			Locator: store.Locator{SiteID: "remark", URL: fmt.Sprintf("https://radio-t.com/blah%d", i%4)},
+			User:    store.User{Name: uid, ID: uid}})
+		require.NoError(t, err)
+	}
+
+	cancel()
+	app.Wait()
+
+	// start app again with search
+	cmd := app.ServerCommand
+	cmd.SearchEngine = SearchEngineGroup{
+		Engine:    "bleve",
+		IndexPath: indexPath,
+		Analyzer:  "standard",
+	}
+	app, ctx, cancel = createAppFromCmd(t, *cmd)
+
+	go func() { _ = app.run(ctx) }()
+	waitForHTTPServerStart(port)
+
+	st := time.Now()
+	for time.Since(st) <= time.Minute {
+		code, _ = get("search?site=remark&query=test")
+		if code == http.StatusBadRequest {
+			time.Sleep(time.Second)
+			continue
+		}
+		assert.Equal(t, http.StatusOK, code)
+		break
+	}
+
+	code, body = get("search?site=remark&query=test&limit=13")
+	assert.Equal(t, http.StatusOK, code)
+
+	comments := []store.Comment{}
+	err := json.Unmarshal([]byte(body), &comments)
+	require.NoError(t, err)
+	assert.Equal(t, len(comments), 13)
+
+	cancel()
+	app.Wait()
+}
+
 func chooseRandomUnusedPort() (port int) {
 	for i := 0; i < 10; i++ {
 		port = 40000 + int(rand.Int31n(10000))
@@ -629,7 +719,10 @@ func prepServerApp(t *testing.T, fn func(o ServerCommand) ServerCommand) (*serve
 
 	os.Remove(cmd.Store.Bolt.Path + "/remark.db")
 
-	// create app
+	return createAppFromCmd(t, cmd)
+}
+
+func createAppFromCmd(t *testing.T, cmd ServerCommand) (*serverApp, context.Context, context.CancelFunc) {
 	app, err := cmd.newServerApp()
 	require.NoError(t, err)
 

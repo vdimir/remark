@@ -28,13 +28,8 @@ type Service struct {
 	ready         bool
 }
 
-// NotReadyError occurs on search in not ready engine
-type NotReadyError struct {
-}
-
-func (NotReadyError) Error() string {
-	return "search engine not ready"
-}
+// ErrSearchNotReady occurs on search in not ready engine
+var ErrSearchNotReady = errors.New("search engine not ready")
 
 // NewSearcher creates new searcher with specified type and parameters
 func NewSearcher(engineType string, params SearcherParams) (*Service, error) {
@@ -85,7 +80,7 @@ func (s *Service) IndexDocument(commentID string, comment *store.Comment) error 
 // Search document
 func (s *Service) Search(req *Request) (*ResultPage, error) {
 	if !s.ready {
-		return nil, NotReadyError{}
+		return nil, ErrSearchNotReady
 	}
 	searcher, has := s.shards[req.SiteID]
 	if !has {

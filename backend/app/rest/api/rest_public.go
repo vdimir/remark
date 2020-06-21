@@ -467,8 +467,11 @@ func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 
 		return encodeJSONWithHTML(comments)
 	})
-	if _, ok := err.(search.NotReadyError); ok {
-		rest.SendErrorJSON(w, r, http.StatusBadRequest, err, "search service not ready", rest.ErrInternal)
+
+	if errors.Is(err, search.ErrSearchNotReady) {
+		rest.SendErrorJSON(w, r, http.StatusBadRequest, err, "can't perform search request", rest.ErrActionRejected)
+	} else if errors.Is(err, service.ErrSearchNotEnabled) {
+		rest.SendErrorJSON(w, r, http.StatusBadRequest, err, "can't perform search request", rest.ErrActionRejected)
 	} else if err != nil {
 		rest.SendErrorJSON(w, r, http.StatusInternalServerError, err, "can't perform search request", rest.ErrInternal)
 		return

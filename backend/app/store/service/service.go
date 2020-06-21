@@ -80,6 +80,9 @@ var nonAdminUser = store.User{}
 // ErrRestrictedWordsFound returned in case comment text contains restricted words
 var ErrRestrictedWordsFound = errors.New("comment contains restricted words")
 
+// ErrSearchNotEnabled returned to search request in case search not enabled
+var ErrSearchNotEnabled = errors.New("search not enabled")
+
 // Create prepares comment and forward to Interface.Create
 func (s *DataStore) Create(comment store.Comment) (commentID string, err error) {
 
@@ -849,7 +852,7 @@ func (s *DataStore) Last(siteID string, limit int, since time.Time, user store.U
 // Search commens using user query
 func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) ([]store.Comment, error) {
 	if s.SearchService == nil {
-		return nil, errors.Errorf("search isn't enabled")
+		return nil, ErrSearchNotEnabled
 	}
 
 	req := &search.Request{

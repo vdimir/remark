@@ -20,6 +20,7 @@ import (
 	"github.com/go-pkgz/auth/token"
 	"github.com/umputun/go-flags"
 	"github.com/umputun/remark42/backend/app/store"
+	"github.com/umputun/remark42/backend/app/store/service"
 	"go.uber.org/goleak"
 
 	"github.com/stretchr/testify/assert"
@@ -642,10 +643,10 @@ func TestServerApp_SearchColdstart(t *testing.T) {
 	code, body = get("search?site=remark&query=test&limit=13")
 	assert.Equal(t, http.StatusOK, code)
 
-	comments := []store.Comment{}
-	err := json.Unmarshal([]byte(body), &comments)
+	serp := service.SearchResultPage{}
+	err := json.Unmarshal([]byte(body), &serp)
 	require.NoError(t, err)
-	assert.Equal(t, len(comments), 13)
+	assert.Equal(t, len(serp.Comments), 13)
 
 	cancel()
 	app.Wait()

@@ -923,7 +923,7 @@ func TestRest_Search(t *testing.T) {
 	defer teardown()
 
 	var err error
-	var comments []store.Comment
+	serp := service.SearchResultPage{}
 	t0 := time.Date(2017, 12, 20, 15, 18, 24, 0, time.Local)
 	c1 := store.Comment{Text: "test test foo", ParentID: "",
 		Locator:   store.Locator{SiteID: "remark42", URL: "https://radio-t.com/blah1"},
@@ -944,46 +944,46 @@ func TestRest_Search(t *testing.T) {
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=bar")
 		require.Equal(t, 200, code)
 
-		err = json.Unmarshal([]byte(res), &comments)
+		err = json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
-		require.Equal(t, 2, len(comments), "should have 2 comments")
-		equalsStringSliceUnordered(t, []string{id2, id3}, []string{comments[0].ID, comments[1].ID})
+		require.Equal(t, 2, len(serp.Comments), "should have 2 comments")
+		equalsStringSliceUnordered(t, []string{id2, id3}, []string{serp.Comments[0].ID, serp.Comments[1].ID})
 	}
 	{
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test")
 		require.Equal(t, 200, code)
 
-		err = json.Unmarshal([]byte(res), &comments)
+		err = json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
-		require.Equal(t, 2, len(comments), "should have 2 comments")
-		equalsStringSliceUnordered(t, []string{id1, id2}, []string{comments[0].ID, comments[1].ID})
+		require.Equal(t, 2, len(serp.Comments), "should have 2 comments")
+		equalsStringSliceUnordered(t, []string{id1, id2}, []string{serp.Comments[0].ID, serp.Comments[1].ID})
 	}
 	{
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=-timestamp")
 		require.Equal(t, 200, code)
 
-		err = json.Unmarshal([]byte(res), &comments)
+		err = json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
-		require.Equal(t, 2, len(comments), "should have 2 comments")
-		assert.Equal(t, []string{id2, id1}, []string{comments[0].ID, comments[1].ID})
+		require.Equal(t, 2, len(serp.Comments), "should have 2 comments")
+		assert.Equal(t, []string{id2, id1}, []string{serp.Comments[0].ID, serp.Comments[1].ID})
 	}
 	{
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=-timestamp&limit=1")
 		require.Equal(t, 200, code)
 
-		err = json.Unmarshal([]byte(res), &comments)
+		err = json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
-		require.Equal(t, 1, len(comments), "should have 1 comments")
-		assert.Equal(t, id2, comments[0].ID)
+		require.Equal(t, 1, len(serp.Comments), "should have 1 comments")
+		assert.Equal(t, id2, serp.Comments[0].ID)
 	}
 	{
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=timestamp")
 		require.Equal(t, 200, code)
 
-		err = json.Unmarshal([]byte(res), &comments)
+		err = json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
-		require.Equal(t, 2, len(comments), "should have 2 comments")
-		assert.Equal(t, []string{id1, id2}, []string{comments[0].ID, comments[1].ID})
+		require.Equal(t, 2, len(serp.Comments), "should have 2 comments")
+		assert.Equal(t, []string{id1, id2}, []string{serp.Comments[0].ID, serp.Comments[1].ID})
 	}
 }
 

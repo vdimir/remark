@@ -46,7 +46,7 @@ type pubStore interface {
 	Count(locator store.Locator) (int, error)
 	List(siteID string, limit int, skip int) ([]store.PostInfo, error)
 	Info(locator store.Locator, readonlyAge int) (store.PostInfo, error)
-	Search(siteID, query, sortBy string, from, limit int) ([]store.Comment, error)
+	Search(siteID, query, sortBy string, from, limit int) (*service.SearchResultPage, error)
 
 	ValidateComment(c *store.Comment) error
 	IsReadOnly(locator store.Locator) bool

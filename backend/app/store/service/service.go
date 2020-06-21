@@ -69,6 +69,12 @@ type PostMetaData struct {
 	ReadOnly bool   `json:"read_only"`
 }
 
+// SearchResultPage contains search results
+type SearchResultPage struct {
+	Total    uint64          `json:"total"`
+	Comments []store.Comment `json:"comments"`
+}
+
 const defaultCommentMaxSize = 2000
 const maxLastCommentsReply = 5000
 
@@ -850,7 +856,7 @@ func (s *DataStore) Last(siteID string, limit int, since time.Time, user store.U
 }
 
 // Search commens using user query
-func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) ([]store.Comment, error) {
+func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) (*SearchResultPage, error) {
 	if s.SearchService == nil {
 		return nil, ErrSearchNotEnabled
 	}
@@ -862,13 +868,16 @@ func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) ([]sto
 		Limit:  limit,
 		From:   from,
 	}
-	serp, err := s.SearchService.Search(req)
+	res, err := s.SearchService.Search(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "search error")
 	}
 
-	comments := make([]store.Comment, 0, len(serp.Documents))
-	for _, r := range serp.Documents {
+	serp := &SearchResultPage{
+		Total:    res.Total,
+		Comments: make([]store.Comment, 0, len(res.Documents)),
+	}
+	for _, r := range res.Documents {
 		getReq := engine.GetRequest{
 			Locator: store.Locator{
 				SiteID: siteID,
@@ -881,10 +890,10 @@ func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) ([]sto
 		if err != nil {
 			return nil, errors.Wrapf(err, "error retrieve search result (%v)", getReq)
 		}
-		comments = append(comments, comment)
+		serp.Comments = append(serp.Comments, comment)
 	}
 
-	return comments, nil
+	return serp, nil
 }
 
 // Close store service

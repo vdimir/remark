@@ -89,5 +89,6 @@ func waitForHTTPServerStart(port int) {
 }
 
 func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m, goleak.IgnoreTopFunction("github.com/umputun/remark42/backend/app.init.0.func1"))
+	goleak.VerifyTestMain(m, goleak.IgnoreTopFunction("github.com/umputun/remark42/backend/app.init.0.func1"),
+		goleak.IgnoreTopFunction("github.com/blevesearch/bleve/index.AnalysisWorker"))
 }

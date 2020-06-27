@@ -139,6 +139,9 @@ github.com/dlclark/regexp2/syntax
 ## explicit
 # github.com/facebookgo/subset v0.0.0-20200203212716-c811ad88dec4
 ## explicit
+# github.com/gammazero/deque v0.0.0-20200310222745-50fa758af896
+## explicit
+github.com/gammazero/deque
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
 github.com/glycerine/go-unsnap-stream
 # github.com/go-chi/chi v4.1.1+incompatible

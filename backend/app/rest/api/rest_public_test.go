@@ -926,6 +926,7 @@ func TestRest_Search(t *testing.T) {
 	searchIndex, err := randomPath(tmp, "test-search-remark", "/")
 	require.NoError(t, err)
 
+	var searcher *search.Service
 	addSearchService := func(ds *service.DataStore) {
 		ds.SearchService, err = search.NewSearcher("bleve",
 			search.SearcherParams{
@@ -933,6 +934,7 @@ func TestRest_Search(t *testing.T) {
 				Analyzer:  "standard",
 				Sites:     []string{"remark42"},
 			})
+		searcher = ds.SearchService
 
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -961,6 +963,8 @@ func TestRest_Search(t *testing.T) {
 		Locator:   store.Locator{SiteID: "remark42", URL: "https://radio-t.com/blah1"},
 		Timestamp: t0.Add(2 * time.Minute)}
 	id3 := addComment(t, c3, ts)
+
+	searcher.Flush("remark42")
 
 	{
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=bar")

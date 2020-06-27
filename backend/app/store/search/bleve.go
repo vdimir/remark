@@ -9,6 +9,7 @@ import (
 
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/mapping"
+	"github.com/gammazero/deque"
 	"github.com/pkg/errors"
 	"github.com/umputun/remark42/backend/app/store"
 
@@ -20,7 +21,11 @@ import (
 
 // bleveEngine provides search using bleve library
 type bleveEngine struct {
-	index bleve.Index
+	docQueue      deque.Deque
+	queueNotifier chan bool
+	index         bleve.Index
+	flushEvery    time.Duration
+	flushCount    int
 }
 
 const commentDocType = "docComment"
@@ -61,6 +66,10 @@ func (d DocumentComment) Type() string {
 	return commentDocType
 }
 
+type idxFlusher struct {
+	notifier chan struct{}
+}
+
 // newBleveService returns new bleveEngine instance
 func newBleveService(indexPath, analyzer string) (s searchEngine, opened bool, err error) {
 	if _, ok := analyzerMapping[analyzer]; !ok {
@@ -87,16 +96,79 @@ func newBleveService(indexPath, analyzer string) (s searchEngine, opened bool, e
 		return nil, opened, errors.Wrap(err, "cannot create/open index")
 	}
 
-	return &bleveEngine{
-		index: index,
-	}, opened, nil
+	eng := &bleveEngine{
+		index:         index,
+		queueNotifier: make(chan bool),
+		flushEvery:    2 * time.Second,
+		flushCount:    100,
+	}
+
+	go eng.indexDocumentWorker()
+	return eng, opened, nil
 }
 
 // IndexDocument adds or updates document to search index
 func (s *bleveEngine) IndexDocument(commentID string, comment *store.Comment) error {
 	doc := DocFromComment(comment)
-	log.Printf("[INFO] index document %s", commentID)
-	return s.index.Index(commentID, doc)
+	log.Printf("[DEBUG] index document %s", commentID)
+	s.docQueue.PushBack(doc)
+	s.queueNotifier <- false
+	return nil
+}
+
+func (s *bleveEngine) indexBatch() {
+	docCount := s.docQueue.Len()
+	if docCount == 0 {
+		return
+	}
+
+	batch := s.index.NewBatch()
+	for i := 0; i < docCount; i++ {
+		switch val := s.docQueue.PopFront().(type) {
+		case *DocumentComment:
+			err := batch.Index(val.ID, val)
+			if err != nil {
+				log.Printf("[ERROR] error while adding doc %q to batch %v", val.ID, err)
+				break
+			}
+		case *idxFlusher:
+			defer func() { val.notifier <- struct{}{} }()
+		default:
+			panic(fmt.Sprintf("unknown type %T", val))
+		}
+	}
+	err := s.index.Batch(batch)
+	log.Printf("[ERROR] error while indexing batch, %v", err)
+}
+
+func (s *bleveEngine) indexDocumentWorker() {
+	log.Printf("[INFO] start bleve indexer worker")
+	tmr := time.NewTimer(s.flushEvery)
+	cont := true
+	for cont {
+		var force bool
+		select {
+		case <-tmr.C:
+			s.indexBatch()
+			tmr.Reset(s.flushEvery)
+		case force, cont = <-s.queueNotifier:
+			full := s.docQueue.Len() >= s.flushCount
+			if force || full {
+				s.indexBatch()
+			}
+		}
+	}
+	// TODO(@vdimir) save current buffer
+	log.Printf("[INFO] shutdown bleve indexer worker")
+}
+
+// Flush documents buffer
+func (s *bleveEngine) Flush() {
+	flusher := &idxFlusher{make(chan struct{})}
+	s.docQueue.PushBack(flusher)
+	s.queueNotifier <- true
+
+	<-flusher.notifier
 }
 
 func createIndexMapping(textAnalyzer string) mapping.IndexMapping {
@@ -134,7 +206,7 @@ func (s *bleveEngine) Search(req *Request) (*ResultPage, error) {
 	if validateSortField(req.SortBy, "timestamp") {
 		bReq.SortBy([]string{req.SortBy})
 	} else if req.SortBy != "" {
-		log.Printf("[WARN] unknows sort field %q", req.SortBy)
+		log.Printf("[WARN] unknown sort field %q", req.SortBy)
 	}
 
 	bReq.Fields = append(bReq.Fields, urlFiledName)
@@ -187,6 +259,7 @@ func (s *bleveEngine) Delete(commentID string) error {
 
 // Close search service
 func (s *bleveEngine) Close() error {
+	close(s.queueNotifier)
 	return s.index.Close()
 }
 

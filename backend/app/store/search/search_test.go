@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/go-pkgz/lgr"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umputun/remark42/backend/app/store"
@@ -32,7 +34,9 @@ func createTestService(t *testing.T, sites []string) (searcher *Service, teardow
 	require.NoError(t, err)
 
 	teardown = func() {
-		require.NoError(t, searcher.Close())
+
+		err := searcher.Close()
+		require.NoError(t, err)
 		_ = os.RemoveAll(idxPath)
 	}
 	return searcher, teardown
@@ -65,6 +69,9 @@ func TestSearch_SiteMux(t *testing.T) {
 		User:      store.User{ID: "u1", Name: "user1"},
 		Timestamp: time.Date(2017, 12, 20, 15, 20, 28, 0, time.Local),
 	})
+
+	searcher.Flush("test-site")
+	searcher.Flush("test-site2")
 	{
 		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 3})
 		require.NoError(t, err)
@@ -107,6 +114,8 @@ func TestSearch_Paginate(t *testing.T) {
 			Timestamp: t0.Add(time.Duration(shift) * time.Minute),
 		})
 	}
+
+	searcher.Flush("test-site")
 	{
 		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, From: 0})
 		require.NoError(t, err)
@@ -187,6 +196,10 @@ func TestSearch_IndexStartup(t *testing.T) {
 	assert.True(t, searcher.IsReady())
 
 	for _, siteID := range sites {
+		searcher.Flush(siteID)
+	}
+
+	for _, siteID := range sites {
 		serp, err := searcher.Search(&Request{
 			SiteID: siteID,
 			Query:  "text",
@@ -222,6 +235,8 @@ func TestSearch_Delete(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	searcher.Flush("test-site")
+
 	{
 		res, searchErr := searcher.Search(&Request{SiteID: "test-site", Query: "text", SortBy: "+timestamp", Limit: 10})
 		require.NoError(t, searchErr)
@@ -238,4 +253,9 @@ func TestSearch_Delete(t *testing.T) {
 		require.Len(t, res.Documents, 1)
 		assert.Equal(t, "comment2", res.Documents[0].ID)
 	}
+}
+
+func TestMain(m *testing.M) {
+	log.Setup(log.Debug, log.CallerFile, log.CallerFunc, log.Msec, log.LevelBraces)
+	os.Exit(m.Run())
 }

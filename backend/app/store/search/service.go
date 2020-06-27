@@ -77,6 +77,20 @@ func (s *Service) IndexDocument(commentID string, comment *store.Comment) error 
 	return searcher.IndexDocument(commentID, comment)
 }
 
+// Flush documents buffer for site
+// If `Flush` called before `PrepareColdstart` it blocks forever
+func (s *Service) Flush(siteID string) {
+	for {
+		if s.ready {
+			break
+		}
+		<-time.After(10 * time.Second)
+	}
+	if inner, has := s.shards[siteID]; has {
+		inner.Flush()
+	}
+}
+
 // Search document
 func (s *Service) Search(req *Request) (*ResultPage, error) {
 	if !s.ready {
@@ -103,7 +117,7 @@ const maxErrsDuringStartup = 20
 // PrepareColdstart creates missing indexes and index existing documents
 func (s *Service) PrepareColdstart(ctx context.Context, e engine.Interface) error {
 	/* TODO(@vdimir)
-	 * This impmlementation could leave index inconsistent with storage
+	 * This impmlementation could leave index inconsistent with storage in some rare cases.
 	 * Consider this situation:
 	 * Some comment retrieved from storage during coldstart and had changed,
 	 * but changed version indexed before initial that is stored in DB.
@@ -182,6 +196,7 @@ func indexSite(ctx context.Context, siteID string, e engine.Interface, s searchE
 
 // Close releases resources
 func (s *Service) Close() error {
+	log.Print("[INFO] closing search service...")
 	errs := new(multierror.Error)
 
 	for siteID, searcher := range s.shards {

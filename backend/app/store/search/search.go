@@ -36,6 +36,7 @@ type ResultPage struct {
 // searchEngine provides core interface for search engines
 type searchEngine interface {
 	IndexDocument(commentID string, comment *store.Comment) error
+	Flush()
 	Search(req *Request) (*ResultPage, error)
 	Delete(commentID string) error
 

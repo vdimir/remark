@@ -46,6 +46,7 @@ github.com/andybalholm/cascadia
 ## explicit
 github.com/blevesearch/bleve
 github.com/blevesearch/bleve/analysis
+github.com/blevesearch/bleve/analysis/analyzer/custom
 github.com/blevesearch/bleve/analysis/analyzer/keyword
 github.com/blevesearch/bleve/analysis/analyzer/standard
 github.com/blevesearch/bleve/analysis/datetime/flexible

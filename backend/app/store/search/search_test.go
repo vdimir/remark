@@ -255,6 +255,52 @@ func TestSearch_Delete(t *testing.T) {
 	}
 }
 
+func TestSearch_OtherFields(t *testing.T) {
+	searcher, teardown := createTestService(t, []string{"test-site", "test-site2", "test-site3"})
+	defer teardown()
+
+	searcher.IndexDocument("123456", &store.Comment{
+		ID:        "123456",
+		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post1"},
+		Text:      "text 123",
+		User:      store.User{ID: "u1", Name: "user foo"},
+		Timestamp: time.Date(2017, 12, 20, 15, 18, 24, 0, time.Local),
+	})
+	searcher.IndexDocument("123457", &store.Comment{
+		ID:        "123457",
+		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post1"},
+		Text:      "text 345",
+		User:      store.User{ID: "u2", Name: "User Bar"},
+		Timestamp: time.Date(2017, 12, 20, 15, 20, 24, 0, time.Local),
+	})
+	searcher.IndexDocument("123458", &store.Comment{
+		ID:        "123458",
+		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post1"},
+		Text:      "foobar text",
+		User:      store.User{ID: "u2", Name: "User Bar"},
+		Timestamp: time.Date(2017, 12, 20, 15, 20, 28, 0, time.Local),
+	})
+
+	searcher.Flush("test-site")
+
+	{
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +username:\"user bar\"", Limit: 20})
+		require.NoError(t, err)
+		require.Len(t, res.Documents, 2)
+	}
+	{
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +username:\"user foo\"", Limit: 20})
+		require.NoError(t, err)
+		require.Len(t, res.Documents, 1)
+	}
+	{
+		// order matters in username field, match only whole token
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +username:\"foo user\"", Limit: 20})
+		require.NoError(t, err)
+		require.Len(t, res.Documents, 0)
+	}
+}
+
 func TestMain(m *testing.M) {
 	log.Setup(log.Debug, log.CallerFile, log.CallerFunc, log.Msec, log.LevelBraces)
 	os.Exit(m.Run())

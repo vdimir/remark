@@ -9,15 +9,16 @@ import (
 	log "github.com/go-pkgz/lgr"
 
 	"github.com/blevesearch/bleve"
+	bleveCustom "github.com/blevesearch/bleve/analysis/analyzer/custom"
+	bleveStandard "github.com/blevesearch/bleve/analysis/analyzer/standard"
+	bleveEn "github.com/blevesearch/bleve/analysis/lang/en"
+	bleveRu "github.com/blevesearch/bleve/analysis/lang/ru"
+	"github.com/blevesearch/bleve/analysis/token/lowercase"
+	bleveSingle "github.com/blevesearch/bleve/analysis/tokenizer/single"
 	"github.com/blevesearch/bleve/mapping"
 	"github.com/gammazero/deque"
 	"github.com/pkg/errors"
 	"github.com/umputun/remark42/backend/app/store"
-
-	"github.com/blevesearch/bleve/analysis/analyzer/keyword"
-	bleveStandard "github.com/blevesearch/bleve/analysis/analyzer/standard"
-	bleveEn "github.com/blevesearch/bleve/analysis/lang/en"
-	bleveRu "github.com/blevesearch/bleve/analysis/lang/ru"
 )
 
 // bleveEngine provides search using bleve library
@@ -31,7 +32,7 @@ type bleveEngine struct {
 }
 
 const commentDocType = "docComment"
-const urlFiledName = "url"
+const urlFieldName = "url"
 
 // Available text analyzers.
 // Bleve supports a bit more languages that may be added,
@@ -190,7 +191,13 @@ func (s *bleveEngine) Flush() {
 
 func createIndexMapping(textAnalyzer string) mapping.IndexMapping {
 	indexMapping := bleve.NewIndexMapping()
-
+	indexMapping.AddCustomAnalyzer("keyword_lower", map[string]interface{}{
+		"type":      bleveCustom.Name,
+		"tokenizer": bleveSingle.Name,
+		"token_filters": []string{
+			lowercase.Name,
+		},
+	})
 	indexMapping.AddDocumentMapping(commentDocType, commentDocumentMapping(textAnalyzer))
 
 	return indexMapping
@@ -207,9 +214,8 @@ func commentDocumentMapping(textAnalyzer string) *mapping.DocumentMapping {
 	commentMapping := bleve.NewDocumentMapping()
 
 	commentMapping.AddFieldMappingsAt("text", textMapping(textAnalyzer, false))
-	commentMapping.AddFieldMappingsAt("username", textMapping(keyword.Name, true))
-	commentMapping.AddFieldMappingsAt("urlFiledName", textMapping(keyword.Name, true))
-
+	commentMapping.AddFieldMappingsAt("username", textMapping("keyword_lower", true))
+	commentMapping.AddFieldMappingsAt(urlFieldName, textMapping("keyword_lower", true))
 	return commentMapping
 }
 
@@ -226,7 +232,7 @@ func (s *bleveEngine) Search(req *Request) (*ResultPage, error) {
 		log.Printf("[WARN] unknown sort field %q", req.SortBy)
 	}
 
-	bReq.Fields = append(bReq.Fields, urlFiledName)
+	bReq.Fields = append(bReq.Fields, urlFieldName)
 
 	serp, err := s.index.Search(bReq)
 	if err != nil {
@@ -245,9 +251,9 @@ func convertBleveSerp(bleveResult *bleve.SearchResult) *ResultPage {
 		Documents: make([]ResultDoc, 0, len(bleveResult.Hits)),
 	}
 	for _, r := range bleveResult.Hits {
-		url, hasURL := r.Fields[urlFiledName].(string)
+		url, hasURL := r.Fields[urlFieldName].(string)
 		if !hasURL {
-			panic(fmt.Sprintf("cannot find %q in %v", urlFiledName, r.Fields))
+			panic(fmt.Sprintf("cannot find %q in %v", urlFieldName, r.Fields))
 		}
 
 		d := ResultDoc{

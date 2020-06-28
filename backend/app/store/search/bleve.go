@@ -3,6 +3,7 @@ package search
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	log "github.com/go-pkgz/lgr"
@@ -21,6 +22,7 @@ import (
 
 // bleveEngine provides search using bleve library
 type bleveEngine struct {
+	queueLock     sync.RWMutex
 	docQueue      deque.Deque
 	queueNotifier chan bool
 	index         bleve.Index
@@ -111,14 +113,19 @@ func newBleveService(indexPath, analyzer string) (s searchEngine, opened bool, e
 func (s *bleveEngine) IndexDocument(commentID string, comment *store.Comment) error {
 	doc := DocFromComment(comment)
 	log.Printf("[DEBUG] index document %s", commentID)
+	s.queueLock.Lock()
 	s.docQueue.PushBack(doc)
+	s.queueLock.Unlock()
 	s.queueNotifier <- false
 	return nil
 }
 
 func (s *bleveEngine) indexBatch() {
+	s.queueLock.Lock()
+
 	docCount := s.docQueue.Len()
 	if docCount == 0 {
+		s.queueLock.Unlock()
 		return
 	}
 
@@ -134,9 +141,13 @@ func (s *bleveEngine) indexBatch() {
 		case *idxFlusher:
 			defer func() { val.notifier <- struct{}{} }()
 		default:
+			s.queueLock.Unlock()
 			panic(fmt.Sprintf("unknown type %T", val))
 		}
 	}
+
+	s.queueLock.Unlock()
+
 	err := s.index.Batch(batch)
 	log.Printf("[ERROR] error while indexing batch, %v", err)
 }
@@ -152,7 +163,9 @@ func (s *bleveEngine) indexDocumentWorker() {
 			s.indexBatch()
 			tmr.Reset(s.flushEvery)
 		case force, cont = <-s.queueNotifier:
+			s.queueLock.RLock()
 			full := s.docQueue.Len() >= s.flushCount
+			s.queueLock.RUnlock()
 			if force || full {
 				s.indexBatch()
 			}
@@ -165,7 +178,11 @@ func (s *bleveEngine) indexDocumentWorker() {
 // Flush documents buffer
 func (s *bleveEngine) Flush() {
 	flusher := &idxFlusher{make(chan struct{})}
+
+	s.queueLock.Lock()
 	s.docQueue.PushBack(flusher)
+	s.queueLock.Unlock()
+
 	s.queueNotifier <- true
 
 	<-flusher.notifier

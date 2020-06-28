@@ -628,6 +628,7 @@ func TestServerApp_SearchColdstart(t *testing.T) {
 
 	go func() { _ = app.run(ctx) }()
 	waitForHTTPServerStart(port)
+	app.dataService.SearchService.Flush("remark")
 
 	st := time.Now()
 	for time.Since(st) <= time.Minute {

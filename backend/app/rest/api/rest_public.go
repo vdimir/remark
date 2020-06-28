@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha1" // nolint
 	"encoding/base64"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -390,17 +391,27 @@ func (s *public) countMultiCtrl(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GET /list?site=siteID&limit=50&skip=10 - list posts with comments
+// GET /list?site=siteID&limit=20&skip=10 - list posts with comments
 func (s *public) listCtrl(w http.ResponseWriter, r *http.Request) {
+	maxSearchLimit := 100
 
 	siteID := r.URL.Query().Get("site")
-	limit, skip := 0, 0
+	limit, skip := 20, 0
 
 	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil {
 		limit = v
 	}
-	if v, err := strconv.Atoi(r.URL.Query().Get("skip")); err == nil {
+	if v, err := strconv.Atoi(r.URL.Query().Get("skip")); err == nil && v >= 0 {
 		skip = v
+	}
+
+	if limit <= 0 || maxSearchLimit < limit {
+		rest.SendErrorJSON(w, r,
+			http.StatusBadRequest,
+			errors.Errorf("wrong param"),
+			fmt.Sprintf("wrong limit value. expected to be from 0 to %d", maxSearchLimit),
+			rest.ErrActionRejected)
+		return
 	}
 
 	key := cache.NewKey(siteID).ID(URLKey(r)).Scopes(siteID)

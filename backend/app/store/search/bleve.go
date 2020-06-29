@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -202,7 +203,7 @@ func (s *bleveEngine) writeAheadLog() {
 	var err error
 
 	aheadLogPath := s.getAheadLogPath()
-	f, err := os.Create(aheadLogPath)
+	f, err := os.Create(filepath.Clean(aheadLogPath))
 	if err != nil {
 		log.Printf("[ERROR] error %v opening log file %q", err, aheadLogPath)
 		return
@@ -245,7 +246,7 @@ func (s *bleveEngine) Init(e engine.Interface) error {
 	// TODO(@vdimir) add tests for this part
 
 	aheadLogPath := s.getAheadLogPath()
-	f, err := os.Open(aheadLogPath)
+	f, err := os.Open(filepath.Clean(aheadLogPath))
 
 	if os.IsNotExist(err) {
 		log.Printf("[WARN] log file %q does not exists", aheadLogPath)

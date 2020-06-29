@@ -1,8 +1,12 @@
 package search
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -19,6 +23,7 @@ import (
 	"github.com/gammazero/deque"
 	"github.com/pkg/errors"
 	"github.com/umputun/remark42/backend/app/store"
+	"github.com/umputun/remark42/backend/app/store/engine"
 )
 
 // bleveEngine provides search using bleve library
@@ -29,10 +34,12 @@ type bleveEngine struct {
 	index         bleve.Index
 	flushEvery    time.Duration
 	flushCount    int
+	indexPath     string
 }
 
 const commentDocType = "docComment"
 const urlFieldName = "url"
+const aheadLogFname = ".ahead.log"
 
 // Available text analyzers.
 // Bleve supports a bit more languages that may be added,
@@ -47,6 +54,7 @@ var analyzerMapping = map[string]string{
 // Bridge between store.Comment and Bleve index
 type DocumentComment struct {
 	ID        string    `json:"id"`
+	SiteID    string    `json:"site"`
 	URL       string    `json:"url"`
 	Text      string    `json:"text"`
 	Timestamp time.Time `json:"timestamp"`
@@ -57,6 +65,7 @@ type DocumentComment struct {
 func DocFromComment(comment *store.Comment) *DocumentComment {
 	return &DocumentComment{
 		URL:       comment.Locator.URL,
+		SiteID:    comment.Locator.SiteID,
 		ID:        comment.ID,
 		Text:      comment.Text,
 		Timestamp: comment.Timestamp,
@@ -107,6 +116,7 @@ func newBleveService(indexPath, analyzer string) (s searchEngine, opened bool, e
 		queueNotifier: make(chan bool),
 		flushEvery:    2 * time.Second,
 		flushCount:    100,
+		indexPath:     indexPath,
 	}
 
 	go eng.indexDocumentWorker()
@@ -179,8 +189,99 @@ func (s *bleveEngine) indexDocumentWorker() {
 			}
 		}
 	}
-	// TODO(@vdimir) save current buffer
 	log.Printf("[INFO] shutdown bleve indexer worker")
+
+	s.writeAheadLog()
+}
+
+func (s *bleveEngine) getAheadLogPath() string {
+	return path.Join(s.indexPath, aheadLogFname)
+}
+
+func (s *bleveEngine) writeAheadLog() {
+	var err error
+
+	aheadLogPath := s.getAheadLogPath()
+	f, err := os.Create(aheadLogPath)
+	if err != nil {
+		log.Printf("[ERROR] error %v opening log file %q", err, aheadLogPath)
+		return
+	}
+	defer func() {
+		errClose := f.Close()
+		if errClose != nil {
+			log.Printf("[ERROR] error %v closing log file %q", errClose, aheadLogPath)
+		}
+	}()
+
+	s.queueLock.Lock()
+	defer s.queueLock.Unlock()
+	for s.docQueue.Len() > 0 {
+		switch val := s.docQueue.PopFront().(type) {
+		case *DocumentComment:
+			if err != nil {
+				continue
+			}
+			var data []byte
+			data, err = json.Marshal(val)
+			if err != nil {
+				continue
+			}
+			data = append(data, 0x0)
+			_, err = f.Write(data)
+		case *idxFlusher:
+			defer func() { val.notifier <- errors.Errorf("indexer closing") }()
+		default:
+			panic(fmt.Sprintf("unknown type %T", val))
+		}
+	}
+	if err != nil {
+		log.Printf("[ERROR] error %v writing log file", err)
+	}
+}
+
+// Init indexer. It loads unindexed comments from ahead log saved from buffer on shutdown
+func (s *bleveEngine) Init(e engine.Interface) error {
+	// TODO(@vdimir) add tests for this part
+
+	aheadLogPath := s.getAheadLogPath()
+	f, err := os.Open(aheadLogPath)
+
+	if os.IsNotExist(err) {
+		log.Printf("[WARN] log file %q does not exists", aheadLogPath)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Printf("[ERROR] error %v closing log file %q", err, aheadLogPath)
+		}
+	}()
+
+	reader := bufio.NewReader(f)
+	for {
+		data, err := reader.ReadBytes(0x0)
+		if err != nil {
+			for err != io.EOF {
+				return nil
+			}
+			return err
+		}
+		data = data[:len(data)-1]
+		var doc *DocumentComment
+		if err = json.Unmarshal(data, doc); err == nil {
+			err = s.indexDoc(doc)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
 }
 
 // Flush documents buffer

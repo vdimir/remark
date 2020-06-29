@@ -3,6 +3,7 @@ package search
 
 import (
 	"github.com/umputun/remark42/backend/app/store"
+	"github.com/umputun/remark42/backend/app/store/engine"
 )
 
 // Request is the input for Search
@@ -36,6 +37,7 @@ type ResultPage struct {
 // searchEngine provides core interface for search engines
 type searchEngine interface {
 	IndexDocument(commentID string, comment *store.Comment) error
+	Init(e engine.Interface) error
 	Flush() error
 	Search(req *Request) (*ResultPage, error)
 	Delete(commentID string) error

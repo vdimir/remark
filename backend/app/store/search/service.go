@@ -79,7 +79,7 @@ func (s *Service) IndexDocument(commentID string, comment *store.Comment) error 
 
 // Flush documents buffer for site
 // If `Flush` called before `PrepareColdstart` it blocks forever
-func (s *Service) Flush(siteID string) {
+func (s *Service) Flush(siteID string) error {
 	for {
 		if s.ready {
 			break
@@ -87,8 +87,9 @@ func (s *Service) Flush(siteID string) {
 		<-time.After(10 * time.Second)
 	}
 	if inner, has := s.shards[siteID]; has {
-		inner.Flush()
+		return inner.Flush()
 	}
+	return errors.Errorf("index for site %q not found", siteID)
 }
 
 // Search document
@@ -135,12 +136,16 @@ func (s *Service) PrepareColdstart(ctx context.Context, e engine.Interface) erro
 	errs := new(multierror.Error)
 	indexedCnt := 0
 	for _, siteID := range sites {
+		indexer := s.shards[siteID]
+
 		exists := s.existedShards[siteID]
 		if exists {
 			log.Printf("[INFO] index for site %q exists", siteID)
+			err := indexer.Init(e)
+			errs = multierror.Append(errs, err)
 			continue
 		}
-		indexedInSite, err := indexSite(ctx, siteID, e, s.shards[siteID])
+		indexedInSite, err := indexSite(ctx, siteID, e, indexer)
 		indexedCnt += indexedInSite
 		errs = multierror.Append(errs, err)
 	}

@@ -70,7 +70,7 @@ func (d DocumentComment) Type() string {
 }
 
 type idxFlusher struct {
-	notifier chan struct{}
+	notifier chan error
 }
 
 // newBleveService returns new bleveEngine instance
@@ -84,10 +84,13 @@ func newBleveService(indexPath, analyzer string) (s searchEngine, opened bool, e
 	}
 	var index bleve.Index
 
-	if _, errOpen := os.Stat(indexPath); os.IsNotExist(errOpen) {
+	if st, errOpen := os.Stat(indexPath); os.IsNotExist(errOpen) {
 		log.Printf("[INFO] creating new search index %s", indexPath)
 		index, err = bleve.New(indexPath, createIndexMapping(analyzerMapping[analyzer]))
 	} else if errOpen == nil {
+		if !st.IsDir() {
+			return nil, opened, errors.Errorf("index path shoule be a directory")
+		}
 		log.Printf("[INFO] opening existing search index %s", indexPath)
 		index, err = bleve.Open(indexPath)
 		opened = true
@@ -114,6 +117,10 @@ func newBleveService(indexPath, analyzer string) (s searchEngine, opened bool, e
 func (s *bleveEngine) IndexDocument(commentID string, comment *store.Comment) error {
 	doc := DocFromComment(comment)
 	log.Printf("[DEBUG] index document %s", commentID)
+	return s.indexDoc(doc)
+}
+
+func (s *bleveEngine) indexDoc(doc *DocumentComment) error {
 	s.queueLock.Lock()
 	s.docQueue.PushBack(doc)
 	s.queueLock.Unlock()
@@ -140,7 +147,7 @@ func (s *bleveEngine) indexBatch() {
 				break
 			}
 		case *idxFlusher:
-			defer func() { val.notifier <- struct{}{} }()
+			defer func() { val.notifier <- nil }()
 		default:
 			s.queueLock.Unlock()
 			panic(fmt.Sprintf("unknown type %T", val))
@@ -177,8 +184,8 @@ func (s *bleveEngine) indexDocumentWorker() {
 }
 
 // Flush documents buffer
-func (s *bleveEngine) Flush() {
-	flusher := &idxFlusher{make(chan struct{})}
+func (s *bleveEngine) Flush() error {
+	flusher := &idxFlusher{make(chan error)}
 
 	s.queueLock.Lock()
 	s.docQueue.PushBack(flusher)
@@ -186,18 +193,21 @@ func (s *bleveEngine) Flush() {
 
 	s.queueNotifier <- true
 
-	<-flusher.notifier
+	return <-flusher.notifier
 }
 
 func createIndexMapping(textAnalyzer string) mapping.IndexMapping {
 	indexMapping := bleve.NewIndexMapping()
-	indexMapping.AddCustomAnalyzer("keyword_lower", map[string]interface{}{
+	err := indexMapping.AddCustomAnalyzer("keyword_lower", map[string]interface{}{
 		"type":      bleveCustom.Name,
 		"tokenizer": bleveSingle.Name,
 		"token_filters": []string{
 			lowercase.Name,
 		},
 	})
+	if err != nil {
+		panic(fmt.Sprintf("error adding bleve analyzer %v", err))
+	}
 	indexMapping.AddDocumentMapping(commentDocType, commentDocumentMapping(textAnalyzer))
 
 	return indexMapping

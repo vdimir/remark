@@ -70,8 +70,8 @@ func TestSearch_SiteMux(t *testing.T) {
 		Timestamp: time.Date(2017, 12, 20, 15, 20, 28, 0, time.Local),
 	})
 
-	searcher.Flush("test-site")
-	searcher.Flush("test-site2")
+	_ = searcher.Flush("test-site")
+	_ = searcher.Flush("test-site2")
 	{
 		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 3})
 		require.NoError(t, err)
@@ -115,7 +115,7 @@ func TestSearch_Paginate(t *testing.T) {
 		})
 	}
 
-	searcher.Flush("test-site")
+	_ = searcher.Flush("test-site")
 	{
 		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, From: 0})
 		require.NoError(t, err)
@@ -196,7 +196,7 @@ func TestSearch_IndexStartup(t *testing.T) {
 	assert.True(t, searcher.IsReady())
 
 	for _, siteID := range sites {
-		searcher.Flush(siteID)
+		_ = searcher.Flush(siteID)
 	}
 
 	for _, siteID := range sites {
@@ -235,7 +235,7 @@ func TestSearch_Delete(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	searcher.Flush("test-site")
+	_ = searcher.Flush("test-site")
 
 	{
 		res, searchErr := searcher.Search(&Request{SiteID: "test-site", Query: "text", SortBy: "+timestamp", Limit: 10})
@@ -281,7 +281,7 @@ func TestSearch_OtherFields(t *testing.T) {
 		Timestamp: time.Date(2017, 12, 20, 15, 20, 28, 0, time.Local),
 	})
 
-	searcher.Flush("test-site")
+	_ = searcher.Flush("test-site")
 
 	{
 		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +username:\"user bar\"", Limit: 20})

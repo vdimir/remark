@@ -75,6 +75,11 @@ type SearchResultPage struct {
 	Comments []store.Comment `json:"comments"`
 }
 
+// SearchHelpPrompt contains search help
+type SearchHelpPrompt struct {
+	Text string `json:"text"`
+}
+
 const defaultCommentMaxSize = 2000
 const maxLastCommentsReply = 5000
 
@@ -894,6 +899,17 @@ func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) (*Sear
 	}
 
 	return serp, nil
+}
+
+// SearchHelp returns help for search syntax
+func (s *DataStore) SearchHelp() (SearchHelpPrompt, error) {
+	res := SearchHelpPrompt{}
+
+	if s.SearchService == nil {
+		return res, ErrSearchNotEnabled
+	}
+	res.Text = s.SearchService.Help()
+	return res, nil
 }
 
 // Close store service

@@ -26,6 +26,7 @@ type Service struct {
 	shards        map[string]searchEngine
 	existedShards map[string]bool
 	ready         bool
+	engineType    string
 }
 
 // ErrSearchNotReady occurs on search in not ready engine
@@ -65,6 +66,7 @@ func NewSearcher(engineType string, params SearcherParams) (*Service, error) {
 		shards:        shards,
 		existedShards: existedShards,
 		ready:         ready,
+		engineType:    engineType,
 	}, err
 }
 
@@ -197,6 +199,18 @@ func indexSite(ctx context.Context, siteID string, e engine.Interface, s searchE
 		}
 	}
 	return indexedCnt, errs.ErrorOrNil()
+}
+
+// Help returns text doc for query language
+func (s *Service) Help() string {
+	switch s.engineType {
+	case "bleve":
+		return "See" + " " +
+			"<a href=\"http://blevesearch.com/docs/Query-String-Query\">" +
+			"blevesearch.com/docs/Query-String-Query</a>" + " " +
+			"for help"
+	}
+	return ""
 }
 
 // Close releases resources

@@ -48,6 +48,7 @@ type pubStore interface {
 	List(siteID string, limit int, skip int) ([]store.PostInfo, error)
 	Info(locator store.Locator, readonlyAge int) (store.PostInfo, error)
 	Search(siteID, query, sortBy string, from, limit int) (*service.SearchResultPage, error)
+	SearchHelp() (service.SearchHelpPrompt, error)
 
 	ValidateComment(c *store.Comment) error
 	IsReadOnly(locator store.Locator) bool
@@ -492,6 +493,29 @@ func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 
 	if err = R.RenderJSONFromBytes(w, r, data); err != nil {
 		log.Printf("[WARN] can't render search results for site %s", siteID)
+	}
+}
+
+// GET /search-help - help for search query language
+func (s *public) searchHelpCtrl(w http.ResponseWriter, r *http.Request) {
+	prompt, err := s.dataService.SearchHelp()
+	if errors.Is(err, service.ErrSearchNotEnabled) {
+		rest.SendErrorJSON(w, r, http.StatusBadRequest, err, "can't get search help text", rest.ErrActionRejected)
+		return
+	} else if err != nil {
+		rest.SendErrorJSON(w, r, http.StatusInternalServerError, err, "can't get search help text", rest.ErrInternal)
+		return
+	}
+
+	data, err := encodeJSONWithHTML(prompt)
+
+	if err != nil {
+		rest.SendErrorJSON(w, r, http.StatusInternalServerError, err, "can't perform search request", rest.ErrInternal)
+		return
+	}
+
+	if err = R.RenderJSONFromBytes(w, r, data); err != nil {
+		log.Printf("[WARN] can't render search prompt for site")
 	}
 }
 

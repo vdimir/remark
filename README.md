@@ -758,6 +758,33 @@ Sort can be `time`, `active` or `score`. Supported sort order with prefix -/+, i
 
 * `GET /api/v1/info?site=site-idd&url=post-url` - returns `PostInfo` for site and url
 
+### Searching
+
+```go
+type ResultDoc struct {
+  PostURL string       `json:"url"`
+  ID      string       `json:"id"`
+  Matches []TokenMatch `json:"matches"`
+}
+
+type ResultPage struct {
+  Total     uint64      `json:"total"`
+  Documents []ResultDoc `json:"documetns"`
+}
+```
+
+* `GET /api/v1/search?site=siteID&query=queryText&limit=20&skip=10` - search documents for query `queryText` and returns `ResultPage`
+
+
+```go
+type SearchHelpPrompt struct {
+  Text string `json:"text"`
+}
+```
+
+* `GET /api/v1/search-help` - return search query language prompt in `SearchHelpPrompt`
+
+
 ### Streaming API
 
 Streaming API provide server-sent events for post updates as well as site update

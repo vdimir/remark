@@ -461,18 +461,18 @@ func (s *public) loadPictureCtrl(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GET /search?site=siteID&query=queryText&limit=20 - search documents
+// GET /search?site=siteID&query=queryText&limit=20&skip=10 - search documents
 func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 	siteID := r.URL.Query().Get("site")
 	query := r.URL.Query().Get("query")
 	sortBy := r.URL.Query().Get("sort")
 
 	limit := s.getNumericParam(r, "limit", 20)
-	from := s.getNumericParam(r, "from", 0)
+	skip := s.getNumericParam(r, "skip", 0)
 
 	key := cache.NewKey(query).ID(URLKey(r)).Scopes(siteID, searchScope)
 	data, err := s.cache.Get(key, func() ([]byte, error) {
-		comments, searchErr := s.dataService.Search(siteID, query, sortBy, from, limit)
+		comments, searchErr := s.dataService.Search(siteID, query, sortBy, skip, limit)
 		if searchErr != nil {
 			return nil, searchErr
 		}

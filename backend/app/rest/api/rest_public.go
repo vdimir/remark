@@ -481,8 +481,10 @@ func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 
 	if errors.Is(err, search.ErrSearchNotReady) {
 		rest.SendErrorJSON(w, r, http.StatusBadRequest, err, "can't perform search request", rest.ErrActionRejected)
+		return
 	} else if errors.Is(err, service.ErrSearchNotEnabled) {
 		rest.SendErrorJSON(w, r, http.StatusBadRequest, err, "can't perform search request", rest.ErrActionRejected)
+		return
 	} else if err != nil {
 		rest.SendErrorJSON(w, r, http.StatusInternalServerError, err, "can't perform search request", rest.ErrInternal)
 		return

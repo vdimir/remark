@@ -264,25 +264,26 @@ func TestSearch_OtherFields(t *testing.T) {
 		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post1"},
 		Text:      "text 123",
 		User:      store.User{ID: "u1", Name: "user foo"},
-		Timestamp: time.Date(2017, 12, 20, 15, 18, 24, 0, time.Local),
+		Timestamp: time.Date(2017, 12, 18, 15, 18, 24, 0, time.Local),
 	})
 	searcher.IndexDocument("123457", &store.Comment{
 		ID:        "123457",
 		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post1"},
 		Text:      "text 345",
 		User:      store.User{ID: "u2", Name: "User Bar"},
-		Timestamp: time.Date(2017, 12, 20, 15, 20, 24, 0, time.Local),
+		Timestamp: time.Date(2017, 12, 21, 15, 20, 24, 0, time.Local),
 	})
 	searcher.IndexDocument("123458", &store.Comment{
 		ID:        "123458",
 		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post1"},
 		Text:      "foobar text",
 		User:      store.User{ID: "u2", Name: "User Bar"},
-		Timestamp: time.Date(2017, 12, 20, 15, 20, 28, 0, time.Local),
+		Timestamp: time.Date(2017, 12, 25, 16, 20, 28, 0, time.Local),
 	})
 
 	_ = searcher.Flush("test-site")
 
+	// username
 	{
 		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +username:\"user bar\"", Limit: 20})
 		require.NoError(t, err)
@@ -298,6 +299,18 @@ func TestSearch_OtherFields(t *testing.T) {
 		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +username:\"foo user\"", Limit: 20})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 0)
+	}
+
+	// time range
+	{
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +timestamp:>\"2017-12-20\"", Limit: 20})
+		require.NoError(t, err)
+		require.Len(t, res.Documents, 2)
+	}
+	{
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +timestamp:<\"2017-12-20\"", Limit: 20})
+		require.NoError(t, err)
+		require.Len(t, res.Documents, 1)
 	}
 }
 

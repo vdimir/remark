@@ -40,6 +40,11 @@ func (s *multiplexer) Init(ctx context.Context, e engine.Interface) error {
 	 * but changed version indexed before initial that is stored in DB.
 	 * So initial version would rewrite changes.
 	 */
+	if e == nil {
+		s.ready = true
+		return nil
+	}
+
 	sites, err := e.ListSites()
 	if err != nil {
 		return err

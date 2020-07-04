@@ -44,6 +44,9 @@ func createTestService(t *testing.T, sites []string) (searcher Service, teardown
 func TestSearch_SiteMux(t *testing.T) {
 	searcher, teardown := createTestService(t, []string{"test-site", "test-site2", "test-site3"})
 	defer teardown()
+	var err error
+	err = searcher.Init(context.Background(), nil)
+	assert.NoError(t, err)
 
 	searcher.IndexDocument("123456", &store.Comment{
 		ID:        "123456",
@@ -102,6 +105,10 @@ func TestSearch_SiteMux(t *testing.T) {
 func TestSearch_Paginate(t *testing.T) {
 	searcher, teardown := createTestService(t, []string{"test-site"})
 	defer teardown()
+	var err error
+	err = searcher.Init(context.Background(), nil)
+	assert.NoError(t, err)
+
 	t0 := time.Date(2017, 12, 20, 15, 18, 24, 0, time.Local)
 	for shift := 0; shift < 4; shift++ {
 		cid := fmt.Sprintf("comment%d", shift)
@@ -210,10 +217,12 @@ func TestSearch_IndexStartup(t *testing.T) {
 func TestSearch_Delete(t *testing.T) {
 	searcher, teardown := createTestService(t, []string{"test-site"})
 	defer teardown()
+	var err error
+	err = searcher.Init(context.Background(), nil)
+	assert.NoError(t, err)
 
 	timestamp := time.Date(2017, 12, 20, 15, 18, 24, 0, time.Local)
 
-	var err error
 	err = searcher.IndexDocument("comment1", &store.Comment{
 		ID:        "comment1",
 		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post"},
@@ -255,6 +264,9 @@ func TestSearch_Delete(t *testing.T) {
 func TestSearch_OtherFields(t *testing.T) {
 	searcher, teardown := createTestService(t, []string{"test-site", "test-site2", "test-site3"})
 	defer teardown()
+	var err error
+	err = searcher.Init(context.Background(), nil)
+	assert.NoError(t, err)
 
 	searcher.IndexDocument("123456", &store.Comment{
 		ID:        "123456",

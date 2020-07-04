@@ -76,6 +76,7 @@ func (s *multiplexer) Ready() bool {
 
 func indexSite(ctx context.Context, siteID string, e engine.Interface, s searchEngine) (int, error) {
 	log.Printf("[INFO] indexing site %q", siteID)
+	startTime := time.Now()
 
 	req := engine.InfoRequest{Locator: store.Locator{SiteID: siteID}}
 	topics, err := e.Info(req)
@@ -85,6 +86,12 @@ func indexSite(ctx context.Context, siteID string, e engine.Interface, s searchE
 
 	errs := new(multierror.Error)
 	indexedCnt := 0
+	defer func() {
+		err = errs.ErrorOrNil()
+		log.Printf("[INFO] %d documents indexed for site %q in %v. errors: %v",
+			indexedCnt, siteID, time.Since(startTime), err)
+	}()
+
 	for i := len(topics) - 1; i >= 0; i-- {
 		topic := topics[i]
 		locator := store.Locator{SiteID: siteID, URL: topic.URL}
@@ -111,6 +118,7 @@ func indexSite(ctx context.Context, siteID string, e engine.Interface, s searchE
 			return indexedCnt, errs.ErrorOrNil()
 		}
 	}
+
 	return indexedCnt, errs.ErrorOrNil()
 }
 

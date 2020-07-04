@@ -22,7 +22,6 @@ type indexer interface {
 }
 
 const commentDocType = "docComment"
-const urlFieldName = "url"
 const aheadLogFname = ".ahead.log"
 
 // DocumentComment is document describes comment stored in index

@@ -79,6 +79,9 @@ func TestSearch_SiteMux(t *testing.T) {
 		require.Len(t, res.Documents, 1)
 		assert.Equal(t, "123456", res.Documents[0].ID)
 
+		require.Len(t, res.Documents[0].Matches, 1)
+		assert.Equal(t, res.Documents[0].Matches[0], TokenMatch{5, 8})
+
 		res, err = searcher.Search(&Request{SiteID: "test-site", Query: "345", Limit: 3})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 0)
@@ -88,7 +91,12 @@ func TestSearch_SiteMux(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 2)
 		assert.Equal(t, "123457", res.Documents[0].ID)
+		require.Len(t, res.Documents[0].Matches, 1)
+		assert.Equal(t, res.Documents[0].Matches[0], TokenMatch{7, 10})
+
 		assert.Equal(t, "123456", res.Documents[1].ID)
+		require.Len(t, res.Documents[1].Matches, 1)
+		assert.Equal(t, res.Documents[1].Matches[0], TokenMatch{5, 8})
 
 		res, err = searcher.Search(&Request{SiteID: "test-site2", Query: "123", Limit: 3})
 		require.NoError(t, err)

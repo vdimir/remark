@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/blevesearch/bleve"
-	"github.com/blevesearch/bleve/mapping"
 	"github.com/gammazero/deque"
 	log "github.com/go-pkgz/lgr"
 	"github.com/pkg/errors"
@@ -228,22 +226,6 @@ func (s *searchEngineImpl) Flush() error {
 	s.queueNotifier <- true
 
 	return <-flusher.notifier
-}
-
-func textMapping(analyzer string, doStore bool) *mapping.FieldMapping {
-	textFieldMapping := bleve.NewTextFieldMapping()
-	textFieldMapping.Store = doStore
-	textFieldMapping.Analyzer = analyzer
-	return textFieldMapping
-}
-
-func commentDocumentMapping(textAnalyzer string) *mapping.DocumentMapping {
-	commentMapping := bleve.NewDocumentMapping()
-
-	commentMapping.AddFieldMappingsAt("text", textMapping(textAnalyzer, false))
-	commentMapping.AddFieldMappingsAt("username", textMapping("keyword_lower", true))
-	commentMapping.AddFieldMappingsAt(urlFieldName, textMapping("keyword_lower", true))
-	return commentMapping
 }
 
 // Search documents

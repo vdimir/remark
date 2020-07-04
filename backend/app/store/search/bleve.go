@@ -18,6 +18,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+const urlFieldName = "url"
+const textFieldName = "text"
+
 // Available text analyzers.
 // Bleve supports a bit more languages that may be added,
 // see https://github.com/blevesearch/bleve/tree/master/analysis/lang
@@ -61,18 +64,41 @@ func convertBleveSerp(bleveResult *bleve.SearchResult) *ResultPage {
 
 		d := ResultDoc{
 			ID:      r.ID,
-			Matches: make([]TokenMatch, len(r.FieldTermLocations)),
+			Matches: []TokenMatch{},
 			PostURL: url,
 		}
-		for _, loc := range r.FieldTermLocations {
-			d.Matches = append(d.Matches, TokenMatch{
-				Start: loc.Location.Start,
-				End:   loc.Location.End,
-			})
+
+		if highlight, has := r.Locations[textFieldName]; has {
+			for _, locs := range highlight {
+				for _, loc := range locs {
+					d.Matches = append(d.Matches, TokenMatch{
+						Start: loc.Start,
+						End:   loc.End,
+					})
+				}
+			}
 		}
+
 		result.Documents = append(result.Documents, d)
 	}
 	return &result
+}
+
+func textMapping(analyzer string, doStore bool) *mapping.FieldMapping {
+	textFieldMapping := bleve.NewTextFieldMapping()
+	textFieldMapping.Store = doStore
+	textFieldMapping.Analyzer = analyzer
+	textFieldMapping.IncludeTermVectors = true
+	return textFieldMapping
+}
+
+func commentDocumentMapping(textAnalyzer string) *mapping.DocumentMapping {
+	commentMapping := bleve.NewDocumentMapping()
+
+	commentMapping.AddFieldMappingsAt(textFieldName, textMapping(textAnalyzer, false))
+	commentMapping.AddFieldMappingsAt("username", textMapping("keyword_lower", true))
+	commentMapping.AddFieldMappingsAt(urlFieldName, textMapping("keyword_lower", true))
+	return commentMapping
 }
 
 func (idx bleveIndexer) Search(req *Request) (*ResultPage, error) {
@@ -86,6 +112,8 @@ func (idx bleveIndexer) Search(req *Request) (*ResultPage, error) {
 	}
 
 	bReq.Fields = append(bReq.Fields, urlFieldName)
+	bReq.Highlight = bleve.NewHighlight()
+	bReq.Highlight.AddField(textFieldName)
 
 	serp, err := idx.Index.Search(bReq)
 	if err != nil {

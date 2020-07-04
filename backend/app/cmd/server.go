@@ -16,6 +16,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-pkgz/jrpc"
+	"github.com/go-pkgz/lcw/eventbus"
 	log "github.com/go-pkgz/lgr"
 	"github.com/kyokomi/emoji"
 	"github.com/pkg/errors"
@@ -85,6 +86,7 @@ type ServerCommand struct {
 		Google    AuthGroup `group:"google" namespace:"google" env-namespace:"GOOGLE" description:"Google OAuth"`
 		Github    AuthGroup `group:"github" namespace:"github" env-namespace:"GITHUB" description:"Github OAuth"`
 		Facebook  AuthGroup `group:"facebook" namespace:"facebook" env-namespace:"FACEBOOK" description:"Facebook OAuth"`
+		Microsoft AuthGroup `group:"microsoft" namespace:"microsoft" env-namespace:"MICROSOFT" description:"Microsoft OAuth"`
 		Yandex    AuthGroup `group:"yandex" namespace:"yandex" env-namespace:"YANDEX" description:"Yandex OAuth"`
 		Twitter   AuthGroup `group:"twitter" namespace:"twitter" env-namespace:"TWITTER" description:"Twitter OAuth"`
 		Dev       bool      `long:"dev" env:"DEV" description:"enable dev (local) oauth2"`
@@ -161,8 +163,9 @@ type AvatarGroup struct {
 
 // CacheGroup defines options group for cache params
 type CacheGroup struct {
-	Type string `long:"type" env:"TYPE" description:"type of cache" choice:"mem" choice:"none" default:"mem"` // nolint
-	Max  struct {
+	Type      string `long:"type" env:"TYPE" description:"type of cache" choice:"redis_pub_sub" choice:"mem" choice:"none" default:"mem"` // nolint
+	RedisAddr string `long:"redis_addr" env:"REDIS_ADDR" default:"127.0.0.1:6379" description:"address of redis cache, turn redis cache on for distributed cache"`
+	Max       struct {
 		Items int   `long:"items" env:"ITEMS" default:"1000" description:"max cached items"`
 		Value int   `long:"value" env:"VALUE" default:"65536" description:"max size of cached value"`
 		Size  int64 `long:"size" env:"SIZE" default:"50000000" description:"max size of total cache"`
@@ -698,6 +701,17 @@ func (s *ServerCommand) makeAdminStore() (admin.Store, error) {
 func (s *ServerCommand) makeCache() (LoadingCache, error) {
 	log.Printf("[INFO] make cache, type=%s", s.Cache.Type)
 	switch s.Cache.Type {
+	case "redis_pub_sub":
+		redisPubSub, err := eventbus.NewRedisPubSub(s.Cache.RedisAddr, "remark42-cache")
+		if err != nil {
+			return nil, errors.Wrap(err, "cache backend initialization, redis PubSub initialisation")
+		}
+		backend, err := cache.NewLruCache(cache.MaxCacheSize(s.Cache.Max.Size), cache.MaxValSize(s.Cache.Max.Value),
+			cache.MaxKeys(s.Cache.Max.Items), cache.EventBus(redisPubSub))
+		if err != nil {
+			return nil, errors.Wrap(err, "cache backend initialization")
+		}
+		return cache.NewScache(backend), nil
 	case "mem":
 		backend, err := cache.NewLruCache(cache.MaxCacheSize(s.Cache.Max.Size), cache.MaxValSize(s.Cache.Max.Value),
 			cache.MaxKeys(s.Cache.Max.Items))
@@ -724,6 +738,10 @@ func (s *ServerCommand) addAuthProviders(authenticator *auth.Service) error {
 	}
 	if s.Auth.Facebook.CID != "" && s.Auth.Facebook.CSEC != "" {
 		authenticator.AddProvider("facebook", s.Auth.Facebook.CID, s.Auth.Facebook.CSEC)
+		providers++
+	}
+	if s.Auth.Microsoft.CID != "" && s.Auth.Microsoft.CSEC != "" {
+		authenticator.AddProvider("microsoft", s.Auth.Microsoft.CID, s.Auth.Microsoft.CSEC)
 		providers++
 	}
 	if s.Auth.Yandex.CID != "" && s.Auth.Yandex.CSEC != "" {

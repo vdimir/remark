@@ -63,18 +63,6 @@ type searchEngine interface {
 }
 
 func newSearchEngine(indexType, indexPath, analyzer string) (s searchEngine, err error) {
-	if _, ok := analyzerMapping[analyzer]; !ok {
-		analyzers := make([]string, 0, len(analyzerMapping))
-		for k := range analyzerMapping {
-			analyzers = append(analyzers, k)
-		}
-		return nil, errors.Errorf("Unknown analyzer: %q. Available analyzers for bleve: %v", analyzer, analyzers)
-	}
-
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot create/open index")
-	}
-
 	var index indexer
 	switch indexType {
 	case "bleve":

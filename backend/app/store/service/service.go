@@ -37,7 +37,7 @@ type DataStore struct {
 	TitleExtractor         *TitleExtractor
 	RestrictedWordsMatcher *RestrictedWordsMatcher
 	ImageService           *image.Service
-	SearchService          *search.Service
+	SearchService          search.Service
 
 	// granular locks
 	scopedLocks struct {
@@ -93,6 +93,9 @@ var ErrRestrictedWordsFound = errors.New("comment contains restricted words")
 
 // ErrSearchNotEnabled returned to search request in case search not enabled
 var ErrSearchNotEnabled = errors.New("search not enabled")
+
+// ErrSearchNotReady occurs on search in not ready engine
+var ErrSearchNotReady = errors.New("search engine not ready")
 
 // Create prepares comment and forward to Interface.Create
 func (s *DataStore) Create(comment store.Comment) (commentID string, err error) {
@@ -865,6 +868,9 @@ func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) (*Sear
 	if s.SearchService == nil {
 		return nil, ErrSearchNotEnabled
 	}
+	if !s.SearchService.Ready() {
+		return nil, ErrSearchNotReady
+	}
 
 	req := &search.Request{
 		SiteID: siteID,
@@ -908,7 +914,7 @@ func (s *DataStore) SearchHelp() (SearchHelpPrompt, error) {
 	if s.SearchService == nil {
 		return res, ErrSearchNotEnabled
 	}
-	res.Text = s.SearchService.Help()
+	res.Text = search.Help(s.SearchService.Type())
 	return res, nil
 }
 

@@ -244,6 +244,7 @@ func (s *Rest) routes() chi.Router {
 			ropen.Get("/info", s.pubRest.infoCtrl)
 			ropen.Get("/img", s.ImageProxy.Handler)
 			ropen.Get("/search", s.pubRest.searchQueryCtrl)
+			ropen.Get("/search-help", s.pubRest.searchHelpCtrl)
 
 			ropen.Route("/rss", func(rrss chi.Router) {
 				rrss.Get("/post", s.rssRest.postCommentsCtrl)

@@ -17,7 +17,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-func createTestService(t *testing.T, sites []string) (searcher *Service, teardown func()) {
+func createTestService(t *testing.T, sites []string) (searcher Service, teardown func()) {
 	tmp := os.TempDir()
 	idxPath := tmp + "/search-remark42"
 
@@ -29,7 +29,6 @@ func createTestService(t *testing.T, sites []string) (searcher *Service, teardow
 			Analyzer:  "standard",
 			Sites:     sites,
 		})
-	searcher.ready = true
 
 	require.NoError(t, err)
 
@@ -185,15 +184,13 @@ func TestSearch_IndexStartup(t *testing.T) {
 	sites := []string{"test-site", "remark", "test-site42"}
 
 	searcher, teardown := createTestService(t, sites)
-	searcher.ready = false
 	defer teardown()
 
 	b, teardown := createDB(t, 42, sites)
 	defer teardown()
 
-	err := searcher.PrepareColdstart(context.Background(), b)
+	err := searcher.Init(context.Background(), b)
 	assert.NoError(t, err)
-	assert.True(t, searcher.IsReady())
 
 	for _, siteID := range sites {
 		_ = searcher.Flush(siteID)

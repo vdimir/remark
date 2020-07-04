@@ -926,7 +926,7 @@ func TestRest_Search(t *testing.T) {
 	searchIndex, err := randomPath(tmp, "test-search-remark", "/")
 	require.NoError(t, err)
 
-	var searcher *search.Service
+	var searcher search.Service
 	addSearchService := func(ds *service.DataStore) {
 		ds.SearchService, err = search.NewSearcher("bleve",
 			search.SearcherParams{
@@ -939,7 +939,7 @@ func TestRest_Search(t *testing.T) {
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		err = ds.SearchService.PrepareColdstart(ctx, ds.Engine)
+		err = ds.SearchService.Init(ctx, ds.Engine)
 		require.NoError(t, err)
 		ds.Engine = search.WrapEngine(ds.Engine, ds.SearchService)
 	}

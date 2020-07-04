@@ -5,14 +5,38 @@ import (
 	"encoding/hex"
 	"hash/fnv"
 	"path"
-	"time"
 
-	log "github.com/go-pkgz/lgr"
-	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/engine"
 )
+
+// Request is the input for Search
+type Request struct {
+	SiteID string
+	Query  string
+	SortBy string
+	From   int
+	Limit  int
+}
+
+// TokenMatch describes match position
+type TokenMatch struct {
+	Start uint64 `json:"start"`
+	End   uint64 `json:"end"`
+}
+
+// ResultDoc search result document
+type ResultDoc struct {
+	PostURL string       `json:"url"`
+	ID      string       `json:"id"`
+	Matches []TokenMatch `json:"matches"`
+}
+
+// ResultPage returned from search
+type ResultPage struct {
+	Total     uint64      `json:"total"`
+	Documents []ResultDoc `json:"documetns"`
+}
 
 // SearcherParams parameters to configure engine
 type SearcherParams struct {
@@ -21,189 +45,45 @@ type SearcherParams struct {
 	Sites     []string
 }
 
-// Service handles search requests siteID to particular engine
-type Service struct {
-	shards        map[string]searchEngine
-	existedShards map[string]bool
-	ready         bool
-	engineType    string
+// Service provides search for engine
+type Service interface {
+	IndexDocument(commentID string, comment *store.Comment) error
+	Init(ctx context.Context, e engine.Interface) error
+	Ready() bool
+	Flush(siteID string) error
+	Search(req *Request) (*ResultPage, error)
+	Delete(siteID, commentID string) error
+	Type() string
+	Close() error
 }
 
-// ErrSearchNotReady occurs on search in not ready engine
-var ErrSearchNotReady = errors.New("search engine not ready")
-
 // NewSearcher creates new searcher with specified type and parameters
-func NewSearcher(engineType string, params SearcherParams) (*Service, error) {
+func NewSearcher(engineType string, params SearcherParams) (Service, error) {
 	encodeSiteID := func(siteID string) string {
 		h := fnv.New32().Sum([]byte(siteID))
 		return hex.EncodeToString(h)
 	}
 
-	existedShards := map[string]bool{}
 	shards := map[string]searchEngine{}
 	var err error
 
 	for _, siteID := range params.Sites {
-		switch engineType {
-		case "bleve":
-			fpath := path.Join(params.IndexPath, encodeSiteID(siteID))
-			shards[siteID], existedShards[siteID], err = newBleveService(fpath, params.Analyzer)
-			if err != nil {
-				return nil, err
-			}
-		default:
-			available := []string{"bleve"}
-			return nil, errors.Errorf("no search engine %q, available engines %v", engineType, available)
+		fpath := path.Join(params.IndexPath, encodeSiteID(siteID))
+		shards[siteID], err = newSearchEngine(engineType, fpath, params.Analyzer)
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	ready := true
-	for _, siteID := range params.Sites {
-		ready = ready && existedShards[siteID]
-	}
-
-	return &Service{
-		shards:        shards,
-		existedShards: existedShards,
-		ready:         ready,
-		engineType:    engineType,
+	return &multiplexer{
+		shards:     shards,
+		engineType: engineType,
 	}, err
 }
 
-// IndexDocument adds comment to index
-func (s *Service) IndexDocument(commentID string, comment *store.Comment) error {
-	searcher, has := s.shards[comment.Locator.SiteID]
-	if !has {
-		return errors.Errorf("no search index for site %q", comment.Locator.SiteID)
-	}
-	return searcher.IndexDocument(commentID, comment)
-}
-
-// Flush documents buffer for site
-// If `Flush` called before `PrepareColdstart` it blocks forever
-func (s *Service) Flush(siteID string) error {
-	for {
-		if s.ready {
-			break
-		}
-		<-time.After(10 * time.Second)
-	}
-	if inner, has := s.shards[siteID]; has {
-		return inner.Flush()
-	}
-	return errors.Errorf("index for site %q not found", siteID)
-}
-
-// Search document
-func (s *Service) Search(req *Request) (*ResultPage, error) {
-	if !s.ready {
-		return nil, ErrSearchNotReady
-	}
-	searcher, has := s.shards[req.SiteID]
-	if !has {
-		return nil, errors.Errorf("no site %q in index", req.SiteID)
-	}
-	return searcher.Search(req)
-
-}
-
-// Delete document from index
-func (s *Service) Delete(siteID, commentID string) error {
-	if inner, has := s.shards[siteID]; has {
-		return inner.Delete(commentID)
-	}
-	return nil
-}
-
-const maxErrsDuringStartup = 20
-
-// PrepareColdstart creates missing indexes and index existing documents
-func (s *Service) PrepareColdstart(ctx context.Context, e engine.Interface) error {
-	/* TODO(@vdimir)
-	 * This impmlementation could leave index inconsistent with storage in some rare cases.
-	 * Consider this situation:
-	 * Some comment retrieved from storage during coldstart and had changed,
-	 * but changed version indexed before initial that is stored in DB.
-	 * So initial version would rewrite changes.
-	 */
-	if s.ready {
-		log.Printf("[INFO] index already ready for all sites")
-		return nil
-	}
-
-	sites, err := e.ListSites()
-	if err != nil {
-		return err
-	}
-	errs := new(multierror.Error)
-	indexedCnt := 0
-	for _, siteID := range sites {
-		indexer := s.shards[siteID]
-
-		exists := s.existedShards[siteID]
-		if exists {
-			log.Printf("[INFO] index for site %q exists", siteID)
-			err := indexer.Init(e)
-			errs = multierror.Append(errs, err)
-			continue
-		}
-		indexedInSite, err := indexSite(ctx, siteID, e, indexer)
-		indexedCnt += indexedInSite
-		errs = multierror.Append(errs, err)
-	}
-	if errs.Len() <= maxErrsDuringStartup {
-		s.ready = true
-	}
-	return errs.ErrorOrNil()
-}
-
-// IsReady returns true if initialization is finished
-func (s *Service) IsReady() bool {
-	return s.ready
-}
-
-func indexSite(ctx context.Context, siteID string, e engine.Interface, s searchEngine) (int, error) {
-	log.Printf("[INFO] indexing site %q", siteID)
-
-	req := engine.InfoRequest{Locator: store.Locator{SiteID: siteID}}
-	topics, err := e.Info(req)
-	if err != nil {
-		return 0, err
-	}
-
-	errs := new(multierror.Error)
-	indexedCnt := 0
-	for i := len(topics) - 1; i >= 0; i-- {
-		topic := topics[i]
-		locator := store.Locator{SiteID: siteID, URL: topic.URL}
-		req := engine.FindRequest{Locator: locator, Since: time.Time{}}
-		comments, err := e.Find(req)
-		if err == nil {
-			for _, comment := range comments {
-				select {
-				case <-ctx.Done():
-					return indexedCnt, multierror.Append(errs, ctx.Err()).ErrorOrNil()
-				default:
-				}
-				comment := comment
-				if err = s.IndexDocument(comment.ID, &comment); err == nil {
-					indexedCnt++
-				}
-			}
-		}
-		if err == nil {
-			continue
-		}
-		if errs = multierror.Append(errs, err); errs.Len() >= maxErrsDuringStartup {
-			return indexedCnt, errs.ErrorOrNil()
-		}
-	}
-	return indexedCnt, errs.ErrorOrNil()
-}
-
 // Help returns text doc for query language
-func (s *Service) Help() string {
-	switch s.engineType {
+func Help(engineType string) string {
+	switch engineType {
 	case "bleve":
 		return "See" + " " +
 			"<a href=\"http://blevesearch.com/docs/Query-String-Query\">" +
@@ -211,17 +91,4 @@ func (s *Service) Help() string {
 			"for help"
 	}
 	return ""
-}
-
-// Close releases resources
-func (s *Service) Close() error {
-	log.Print("[INFO] closing search service...")
-	errs := new(multierror.Error)
-
-	for siteID, searcher := range s.shards {
-		if err := searcher.Close(); err != nil {
-			errs = multierror.Append(errs, errors.Wrapf(err, "cannot close searcher for %q", siteID))
-		}
-	}
-	return errs.ErrorOrNil()
 }

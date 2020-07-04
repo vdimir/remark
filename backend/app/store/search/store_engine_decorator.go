@@ -7,22 +7,22 @@ import (
 	"github.com/umputun/remark42/backend/app/store/engine"
 )
 
-// EngineDecorator proxies requests to engine.Interface and index incoming data
-type EngineDecorator struct {
+// StoreEngineDecorator proxies requests to store/engine.Interface and index incoming data
+type StoreEngineDecorator struct {
 	engine.Interface
-	searcher *Service
+	searcher Service
 }
 
-// WrapEngine decorates engine with EngineDecorator
-func WrapEngine(e engine.Interface, s *Service) engine.Interface {
-	return &EngineDecorator{
+// WrapEngine decorates engine with StoreEngineDecorator
+func WrapEngine(e engine.Interface, s Service) engine.Interface {
+	return &StoreEngineDecorator{
 		Interface: e,
 		searcher:  s,
 	}
 }
 
 // Create comment and add to index
-func (e *EngineDecorator) Create(comment store.Comment) (commentID string, err error) {
+func (e *StoreEngineDecorator) Create(comment store.Comment) (commentID string, err error) {
 	commentID, err = e.Interface.Create(comment)
 	if err != nil {
 		return commentID, err
@@ -34,7 +34,7 @@ func (e *EngineDecorator) Create(comment store.Comment) (commentID string, err e
 }
 
 // Update comment and index
-func (e *EngineDecorator) Update(comment store.Comment) error {
+func (e *StoreEngineDecorator) Update(comment store.Comment) error {
 	if err := e.Interface.Update(comment); err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func (e *EngineDecorator) Update(comment store.Comment) error {
 }
 
 // Delete comment from storage and index
-func (e *EngineDecorator) Delete(req engine.DeleteRequest) error {
+func (e *StoreEngineDecorator) Delete(req engine.DeleteRequest) error {
 	if err := e.Interface.Delete(req); err != nil {
 		return err
 	}

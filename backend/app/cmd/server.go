@@ -530,7 +530,7 @@ func (a *serverApp) run(ctx context.Context) error {
 
 	if a.dataService.SearchService != nil {
 		go func() {
-			err := a.dataService.SearchService.PrepareColdstart(ctx, a.dataService.Engine)
+			err := a.dataService.SearchService.Init(ctx, a.dataService.Engine)
 
 			log.Printf("[INFO] all documents indexed")
 			if err != nil {
@@ -968,7 +968,7 @@ func (s *ServerCommand) makeAuthenticator(ds *service.DataStore, avas avatar.Sto
 	return authenticator, nil
 }
 
-func (s *ServerCommand) makeSearchService() (*search.Service, error) {
+func (s *ServerCommand) makeSearchService() (search.Service, error) {
 	if s.SearchEngine.Engine == "none" {
 		log.Printf("[INFO] search feature disabled")
 		return nil, nil

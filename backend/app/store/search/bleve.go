@@ -27,16 +27,24 @@ var analyzerMapping = map[string]string{
 	"ru":       bleveRu.AnalyzerName,
 }
 
+type bleveBatch struct {
+	*bleve.Batch
+}
+
+func (b bleveBatch) Index(id string, data *DocumentComment) error {
+	return b.Batch.Index(id, data)
+}
+
 type bleveIndexer struct {
 	bleve.Index
 }
 
 func (idx bleveIndexer) NewBatch() indexerBatch {
-	return idx.Index.NewBatch()
+	return bleveBatch{idx.Index.NewBatch()}
 }
 
 func (idx bleveIndexer) Batch(batch indexerBatch) error {
-	b := batch.(*bleve.Batch)
+	b := batch.(bleveBatch).Batch
 	return idx.Index.Batch(b)
 }
 

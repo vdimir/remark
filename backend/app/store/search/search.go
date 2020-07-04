@@ -10,7 +10,7 @@ import (
 )
 
 type indexerBatch interface {
-	Index(id string, data interface{}) error
+	Index(id string, data *DocumentComment) error
 }
 
 type indexer interface {

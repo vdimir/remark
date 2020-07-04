@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	log "github.com/go-pkgz/lgr"
@@ -15,7 +16,7 @@ import (
 type multiplexer struct {
 	shards     map[string]searchEngine
 	engineType string
-	ready      bool
+	ready      atomic.Value
 }
 
 // IndexDocument adds comment to index
@@ -41,7 +42,7 @@ func (s *multiplexer) Init(ctx context.Context, e engine.Interface) error {
 	 * So initial version would rewrite changes.
 	 */
 	if e == nil {
-		s.ready = true
+		s.ready.Store(true)
 		return nil
 	}
 
@@ -64,13 +65,13 @@ func (s *multiplexer) Init(ctx context.Context, e engine.Interface) error {
 	}
 	err = errs.ErrorOrNil()
 	if err == nil {
-		s.ready = true
+		s.ready.Store(true)
 	}
 	return err
 }
 
 func (s *multiplexer) Ready() bool {
-	return s.ready
+	return s.ready.Load().(bool)
 }
 
 func indexSite(ctx context.Context, siteID string, e engine.Interface, s searchEngine) (int, error) {
@@ -117,7 +118,7 @@ func indexSite(ctx context.Context, siteID string, e engine.Interface, s searchE
 // If `Flush` called before `Init` or after `Init` that ends with error it blocks forever
 func (s *multiplexer) Flush(siteID string) error {
 	for {
-		if s.ready {
+		if s.Ready() {
 			break
 		}
 		<-time.After(10 * time.Second)

@@ -19,6 +19,15 @@ type multiplexer struct {
 	ready      atomic.Value
 }
 
+func newMultiplexer(shards map[string]searchEngine, engineType string) *multiplexer {
+	m := &multiplexer{
+		shards:     shards,
+		engineType: engineType,
+	}
+	m.ready.Store(false)
+	return m
+}
+
 // IndexDocument adds comment to index
 func (s *multiplexer) IndexDocument(commentID string, comment *store.Comment) error {
 	searcher, has := s.shards[comment.Locator.SiteID]

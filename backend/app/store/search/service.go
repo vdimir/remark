@@ -75,10 +75,7 @@ func NewSearcher(engineType string, params SearcherParams) (Service, error) {
 		}
 	}
 
-	return &multiplexer{
-		shards:     shards,
-		engineType: engineType,
-	}, err
+	return newMultiplexer(shards, engineType), err
 }
 
 // Help returns text doc for query language

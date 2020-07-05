@@ -37,7 +37,8 @@ services:
             - SECRET=12345
             - STORE_BOLT_PATH=/srv/var/db
             - BACKUP_PATH=/srv/var/backup
-            - SEARCH_TYPE
+            - SEARCH_ENGINE
+            - SEARCH_ANALYZER
             - SEARCH_INDEX_PATH=/srv/var/search
             - DEBUG=true
             - ADMIN_PASSWD=password

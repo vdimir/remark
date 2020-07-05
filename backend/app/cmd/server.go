@@ -236,7 +236,7 @@ type RPCGroup struct {
 
 // SearchEngineGroup defines options group for search engine
 type SearchEngineGroup struct {
-	Engine    string `long:"type" env:"ENGINE" description:"search engine to use" default:"none"`
+	Engine    string `long:"engine" env:"ENGINE" description:"search engine to use" default:"none"`
 	IndexPath string `long:"index_path" env:"INDEX_PATH" default:"./var/comments.index" description:"path to search index"`
 	Analyzer  string `long:"analyzer" env:"ANALYZER" default:"standard" description:"text analyzer type (language-specific)"`
 }

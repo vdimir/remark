@@ -21,20 +21,20 @@ type idxFlusher struct {
 	notifier chan error
 }
 
-// searchEngineImpl provides common functionality around indexer,
+// bufferedEngine provides common functionality around searchEngine,
 // like buffering, startup/shotdown handling etc
-type searchEngineImpl struct {
+type bufferedEngine struct {
 	queueLock     sync.RWMutex
 	docQueue      deque.Deque
 	queueNotifier chan bool
-	index         indexer
+	index         searchEngine
 	flushEvery    time.Duration
 	flushCount    int
 	indexPath     string
 }
 
 // IndexDocument adds or updates document to search index
-func (s *searchEngineImpl) IndexDocument(doc *DocumentComment) error {
+func (s *bufferedEngine) IndexDocument(doc *DocumentComment) error {
 	s.queueLock.Lock()
 	s.docQueue.PushBack(doc)
 	s.queueLock.Unlock()
@@ -42,7 +42,7 @@ func (s *searchEngineImpl) IndexDocument(doc *DocumentComment) error {
 	return nil
 }
 
-func (s *searchEngineImpl) indexBatch() {
+func (s *bufferedEngine) indexBatch() {
 	s.queueLock.Lock()
 
 	docCount := s.docQueue.Len()
@@ -76,7 +76,7 @@ func (s *searchEngineImpl) indexBatch() {
 	}
 }
 
-func (s *searchEngineImpl) indexDocumentWorker() {
+func (s *bufferedEngine) indexDocumentWorker() {
 	log.Printf("[INFO] start bleve indexer worker")
 	tmr := time.NewTimer(s.flushEvery)
 	cont := true
@@ -100,11 +100,11 @@ func (s *searchEngineImpl) indexDocumentWorker() {
 	s.writeAheadLog()
 }
 
-func (s *searchEngineImpl) getAheadLogPath() string {
+func (s *bufferedEngine) getAheadLogPath() string {
 	return path.Join(s.indexPath, aheadLogFname)
 }
 
-func (s *searchEngineImpl) writeAheadLog() {
+func (s *bufferedEngine) writeAheadLog() {
 	var err error
 
 	aheadLogPath := s.getAheadLogPath()
@@ -150,9 +150,9 @@ func (s *searchEngineImpl) writeAheadLog() {
 	}
 }
 
-// Init indexer. It loads unindexed comments from ahead log saved from buffer on shutdown
+// Init engine. It loads unindexed comments from ahead log saved from buffer on shutdown
 // Return true if engine initalizated before, false means cold start
-func (s *searchEngineImpl) Init(ctx context.Context) (bool, error) {
+func (s *bufferedEngine) Init(ctx context.Context) (bool, error) {
 	// TODO(@vdimir) add tests for this part
 
 	aheadLogPath := s.getAheadLogPath()
@@ -187,7 +187,7 @@ func (s *searchEngineImpl) Init(ctx context.Context) (bool, error) {
 	return true, err
 }
 
-func (s *searchEngineImpl) readAheadLog(ctx context.Context, reader *bufio.Reader) error {
+func (s *bufferedEngine) readAheadLog(ctx context.Context, reader *bufio.Reader) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -216,7 +216,7 @@ func (s *searchEngineImpl) readAheadLog(ctx context.Context, reader *bufio.Reade
 }
 
 // Flush documents buffer
-func (s *searchEngineImpl) Flush() error {
+func (s *bufferedEngine) Flush() error {
 	flusher := &idxFlusher{make(chan error)}
 
 	s.queueLock.Lock()
@@ -229,13 +229,13 @@ func (s *searchEngineImpl) Flush() error {
 }
 
 // Search documents
-func (s *searchEngineImpl) Search(req *Request) (*ResultPage, error) {
+func (s *bufferedEngine) Search(req *Request) (*ResultPage, error) {
 	log.Printf("[INFO] searching %v", req)
 	return s.index.Search(req)
 }
 
 // Delete comment from index
-func (s *searchEngineImpl) Delete(commentID string) error {
+func (s *bufferedEngine) Delete(commentID string) error {
 	if err := s.index.Delete(commentID); err != nil {
 		return errors.Wrapf(err, "cannot detele comment %q from search index", commentID)
 	}
@@ -243,7 +243,7 @@ func (s *searchEngineImpl) Delete(commentID string) error {
 }
 
 // Close search service
-func (s *searchEngineImpl) Close() error {
+func (s *bufferedEngine) Close() error {
 	close(s.queueNotifier)
 	return s.index.Close()
 }

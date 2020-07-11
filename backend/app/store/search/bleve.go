@@ -1,8 +1,12 @@
 package search
 
 import (
+	"encoding/hex"
 	"fmt"
+	"hash/fnv"
 	"os"
+	"path"
+	"time"
 
 	log "github.com/go-pkgz/lgr"
 
@@ -34,12 +38,70 @@ type bleveBatch struct {
 	*bleve.Batch
 }
 
+type bleveIndexer struct {
+	bleve.Index
+}
+
 func (b bleveBatch) Index(id string, data *DocumentComment) error {
 	return b.Batch.Index(id, data)
 }
 
-type bleveIndexer struct {
-	bleve.Index
+func newBleve(indexPath, analyzer string) (s *bufferedEngine, err error) {
+	if _, ok := analyzerMapping[analyzer]; !ok {
+		analyzers := make([]string, 0, len(analyzerMapping))
+		for k := range analyzerMapping {
+			analyzers = append(analyzers, k)
+		}
+		return nil, errors.Errorf("Unknown analyzer: %q. Available analyzers for bleve: %v", analyzer, analyzers)
+	}
+	var index bleve.Index
+
+	if st, errOpen := os.Stat(indexPath); os.IsNotExist(errOpen) {
+		log.Printf("[INFO] creating new search index %s", indexPath)
+		index, err = bleve.New(indexPath, createIndexMapping(analyzerMapping[analyzer]))
+	} else if errOpen == nil {
+		if !st.IsDir() {
+			return nil, errors.Errorf("index path shoule be a directory")
+		}
+		log.Printf("[INFO] opening existing search index %s", indexPath)
+		index, err = bleve.Open(indexPath)
+	} else {
+		err = errOpen
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot create/open index")
+	}
+
+	eng := &bufferedEngine{
+		index:         bleveIndexer{index},
+		queueNotifier: make(chan bool),
+		flushEvery:    2 * time.Second,
+		flushCount:    100,
+		indexPath:     indexPath,
+	}
+
+	go eng.indexDocumentWorker()
+
+	return eng, nil
+}
+
+func newBleveService(params SearcherParams) (s Service, err error) {
+	encodeSiteID := func(siteID string) string {
+		h := fnv.New32().Sum([]byte(siteID))
+		return hex.EncodeToString(h)
+	}
+
+	shards := map[string]*bufferedEngine{}
+
+	for _, siteID := range params.Sites {
+		fpath := path.Join(params.IndexPath, encodeSiteID(siteID))
+		shards[siteID], err = newBleve(fpath, params.Analyzer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return newMultiplexer(shards, params.Type), err
 }
 
 func (idx bleveIndexer) NewBatch() indexerBatch {
@@ -132,37 +194,6 @@ func (idx bleveIndexer) Delete(id string) error {
 
 func (idx bleveIndexer) Close() error {
 	return idx.Index.Close()
-}
-
-// newBleveIndexer returns new bleveEngine instance
-func newBleveIndexer(indexPath, analyzer string) (s indexer, err error) {
-	if _, ok := analyzerMapping[analyzer]; !ok {
-		analyzers := make([]string, 0, len(analyzerMapping))
-		for k := range analyzerMapping {
-			analyzers = append(analyzers, k)
-		}
-		return nil, errors.Errorf("Unknown analyzer: %q. Available analyzers for bleve: %v", analyzer, analyzers)
-	}
-	var index bleve.Index
-
-	if st, errOpen := os.Stat(indexPath); os.IsNotExist(errOpen) {
-		log.Printf("[INFO] creating new search index %s", indexPath)
-		index, err = bleve.New(indexPath, createIndexMapping(analyzerMapping[analyzer]))
-	} else if errOpen == nil {
-		if !st.IsDir() {
-			return nil, errors.Errorf("index path shoule be a directory")
-		}
-		log.Printf("[INFO] opening existing search index %s", indexPath)
-		index, err = bleve.Open(indexPath)
-	} else {
-		err = errOpen
-	}
-
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot create/open index")
-	}
-
-	return bleveIndexer{index}, nil
 }
 
 func createIndexMapping(textAnalyzer string) mapping.IndexMapping {

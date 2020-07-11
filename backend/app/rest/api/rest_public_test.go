@@ -928,12 +928,12 @@ func TestRest_Search(t *testing.T) {
 
 	var searcher search.Service
 	addSearchService := func(ds *service.DataStore) {
-		ds.SearchService, err = search.NewSearcher("bleve",
-			search.SearcherParams{
-				IndexPath: searchIndex,
-				Analyzer:  "standard",
-				Sites:     []string{"remark42"},
-			})
+		ds.SearchService, err = search.NewSearcher(search.SearcherParams{
+			Type:      "bleve",
+			IndexPath: searchIndex,
+			Analyzer:  "standard",
+			Sites:     []string{"remark42"},
+		})
 		searcher = ds.SearchService
 
 		require.NoError(t, err)

@@ -2,10 +2,8 @@
 package search
 
 import (
-	"context"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/umputun/remark42/backend/app/store"
 )
 
@@ -13,12 +11,16 @@ type indexerBatch interface {
 	Index(id string, data *DocumentComment) error
 }
 
-type indexer interface {
+type searchEngine interface {
 	NewBatch() indexerBatch
 	Batch(batch indexerBatch) error
 	Search(req *Request) (*ResultPage, error)
 	Delete(id string) error
 	Close() error
+}
+
+type indexer interface {
+	IndexDocument(doc *DocumentComment) error
 }
 
 const commentDocType = "docComment"
@@ -50,39 +52,4 @@ func DocFromComment(comment *store.Comment) *DocumentComment {
 // Type implements bleve.Classifier
 func (d DocumentComment) Type() string {
 	return commentDocType
-}
-
-type searchEngine interface {
-	IndexDocument(doc *DocumentComment) error
-	Search(req *Request) (*ResultPage, error)
-	Init(ctx context.Context) (bool, error)
-	Delete(id string) error
-	Flush() error
-	Close() error
-}
-
-func newSearchEngine(indexType, indexPath, analyzer string) (s searchEngine, err error) {
-	var index indexer
-	switch indexType {
-	case "bleve":
-		index, err = newBleveIndexer(indexPath, analyzer)
-	default:
-		available := []string{"bleve"}
-		return nil, errors.Errorf("no search engine %q, available engines %v", indexType, available)
-	}
-
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot create/open index")
-	}
-
-	eng := &searchEngineImpl{
-		index:         index,
-		queueNotifier: make(chan bool),
-		flushEvery:    2 * time.Second,
-		flushCount:    100,
-		indexPath:     indexPath,
-	}
-
-	go eng.indexDocumentWorker()
-	return eng, nil
 }

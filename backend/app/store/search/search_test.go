@@ -23,12 +23,12 @@ func createTestService(t *testing.T, sites []string) (searcher Service, teardown
 
 	_ = os.RemoveAll(idxPath)
 
-	searcher, err := NewSearcher("bleve",
-		SearcherParams{
-			IndexPath: idxPath,
-			Analyzer:  "standard",
-			Sites:     sites,
-		})
+	searcher, err := NewSearcher(SearcherParams{
+		Type:      "bleve",
+		IndexPath: idxPath,
+		Analyzer:  "standard",
+		Sites:     sites,
+	})
 
 	require.NoError(t, err)
 

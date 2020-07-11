@@ -2,10 +2,8 @@ package search
 
 import (
 	"context"
-	"encoding/hex"
-	"hash/fnv"
-	"path"
 
+	"github.com/pkg/errors"
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/engine"
 )
@@ -40,6 +38,7 @@ type ResultPage struct {
 
 // SearcherParams parameters to configure engine
 type SearcherParams struct {
+	Type      string
 	IndexPath string
 	Analyzer  string
 	Sites     []string
@@ -58,24 +57,13 @@ type Service interface {
 }
 
 // NewSearcher creates new searcher with specified type and parameters
-func NewSearcher(engineType string, params SearcherParams) (Service, error) {
-	encodeSiteID := func(siteID string) string {
-		h := fnv.New32().Sum([]byte(siteID))
-		return hex.EncodeToString(h)
+func NewSearcher(params SearcherParams) (Service, error) {
+	switch params.Type {
+	case "bleve":
+		return newBleveService(params)
 	}
-
-	shards := map[string]searchEngine{}
-	var err error
-
-	for _, siteID := range params.Sites {
-		fpath := path.Join(params.IndexPath, encodeSiteID(siteID))
-		shards[siteID], err = newSearchEngine(engineType, fpath, params.Analyzer)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return newMultiplexer(shards, engineType), err
+	available := []string{"bleve"}
+	return nil, errors.Errorf("no search engine %q, available engines %v", params.Type, available)
 }
 
 // Help returns text doc for query language

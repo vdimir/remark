@@ -14,12 +14,12 @@ import (
 
 // multiplexer handles search requests siteID to particular engine
 type multiplexer struct {
-	shards     map[string]searchEngine
+	shards     map[string]*bufferedEngine
 	engineType string
 	ready      atomic.Value
 }
 
-func newMultiplexer(shards map[string]searchEngine, engineType string) *multiplexer {
+func newMultiplexer(shards map[string]*bufferedEngine, engineType string) *multiplexer {
 	m := &multiplexer{
 		shards:     shards,
 		engineType: engineType,
@@ -83,7 +83,7 @@ func (s *multiplexer) Ready() bool {
 	return s.ready.Load().(bool)
 }
 
-func indexSite(ctx context.Context, siteID string, e engine.Interface, s searchEngine) (int, error) {
+func indexSite(ctx context.Context, siteID string, e engine.Interface, s indexer) (int, error) {
 	log.Printf("[INFO] indexing site %q", siteID)
 	startTime := time.Now()
 

@@ -998,11 +998,12 @@ func (s *ServerCommand) makeSearchService() (search.Service, error) {
 	log.Printf("[INFO] make %q search service", s.SearchEngine.Engine)
 
 	params := search.SearcherParams{
+		Type:      s.SearchEngine.Engine,
 		IndexPath: s.SearchEngine.IndexPath,
 		Analyzer:  s.SearchEngine.Analyzer,
 		Sites:     s.Sites,
 	}
-	return search.NewSearcher(s.SearchEngine.Engine, params)
+	return search.NewSearcher(params)
 }
 
 // authRefreshCache used by authenticator to minimize repeatable token refreshes

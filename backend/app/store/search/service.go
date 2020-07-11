@@ -42,6 +42,7 @@ type SearcherParams struct {
 	IndexPath string
 	Analyzer  string
 	Sites     []string
+	Endpoint  string
 }
 
 // Service provides search for engine
@@ -61,6 +62,8 @@ func NewSearcher(params SearcherParams) (Service, error) {
 	switch params.Type {
 	case "bleve":
 		return newBleveService(params)
+	case "elastic":
+		return newElasticService(params)
 	}
 	available := []string{"bleve"}
 	return nil, errors.Errorf("no search engine %q, available engines %v", params.Type, available)

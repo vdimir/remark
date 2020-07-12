@@ -910,7 +910,7 @@ func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) (*Sear
 		comment, err := s.Engine.Get(getReq)
 
 		if err != nil {
-			return nil, errors.Wrapf(err, "error retrieve search result (%v)", getReq)
+			return nil, errors.Wrapf(err, "cannot retrieve search result (%v)", getReq)
 		}
 		serp.Comments = append(serp.Comments, comment)
 	}

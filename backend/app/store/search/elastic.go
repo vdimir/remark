@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"io/ioutil"
 	"log"
+	"strings"
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esutil"
@@ -30,8 +32,8 @@ type elacticQuery struct {
 		Match struct {
 			Text string `json:"text"`
 		} `json:"match"`
-	} `json:"start"`
-	Size int `json:"total"`
+	} `json:"query"`
+	Size int `json:"size"`
 	From int `json:"from"`
 }
 
@@ -42,22 +44,44 @@ type elacticResponse struct {
 			Value int
 		}
 		Hits []struct {
-			ID         string          `json:"_id"`
-			Source     json.RawMessage `json:"_source"`
-			Highlights json.RawMessage `json:"highlight"`
-			Sort       []interface{}   `json:"sort"`
+			ID        string          `json:"_id"`
+			Source    DocumentComment `json:"_source"`
+			Sort      []interface{}   `json:"sort"`
+			Highlight json.RawMessage `json:"highlight"`
 		}
 	}
 }
 
+func parseSecret(secret string, cfg *elasticsearch.Config) error {
+	if strings.HasPrefix(secret, "basic:") {
+		userpass := strings.Split(strings.TrimPrefix(secret, "basic:"), ":")
+		if len(userpass) != 2 {
+			return errors.Errorf("secret for basic auth sould have format 'basic:user:pass'")
+		}
+		cfg.Username = userpass[0]
+		cfg.Password = userpass[1]
+	} else if strings.HasPrefix(secret, "token:") {
+		cfg.APIKey = strings.TrimPrefix(secret, "token:")
+	} else {
+		allowed := []string{"basic:", "token:"}
+		return errors.Errorf("secret should starts with one of prefixes: %v", allowed)
+	}
+	return nil
+}
+
 func newElasticService(params SearcherParams) (Service, error) {
-	if params.Endpoint == "" {
+	if params.Endpoint == "" || params.Secret == "" {
 		return nil, errors.Errorf("elasticsearch parameters are not set")
 	}
 
-	client, err := elasticsearch.NewClient(elasticsearch.Config{
+	cfg := elasticsearch.Config{
 		Addresses: []string{params.Endpoint},
-	})
+	}
+	if err := parseSecret(params.Secret, &cfg); err != nil {
+		return nil, err
+	}
+
+	client, err := elasticsearch.NewClient(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -145,30 +169,32 @@ func (e *elastic) Search(req *Request) (*ResultPage, error) {
 	defer resp.Body.Close()
 
 	if resp.IsError() {
-		var e struct {
-			Type   string `json:"type"`
-			Reason string `json:"reason"`
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "error reading the response body")
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
-			return nil, errors.Wrap(err, "error parsing the response body")
-		}
-		return nil, errors.Errorf("search error %s: %s", e.Type, e.Reason)
+		return nil, errors.Errorf("elastic respond an error %d: %s", resp.StatusCode, string(body))
 	}
+
 	var r elacticResponse
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 		return nil, errors.Wrap(err, "error parsing the response body")
 	}
 	serp := &ResultPage{
 		Total:     uint64(r.Hits.Total.Value),
-		Documents: make([]ResultDoc, len(r.Hits.Hits)),
+		Documents: make([]ResultDoc, 0, len(r.Hits.Hits)),
 	}
-	// for _, v := r.Hits.Hits {
-	// }
+	for _, v := range r.Hits.Hits {
+		serp.Documents = append(serp.Documents, ResultDoc{
+			PostURL: v.Source.URL,
+			ID:      v.Source.ID,
+		})
+	}
 	return serp, nil
 }
 
 func (e *elastic) Init(ctx context.Context, eng engine.Interface) error {
-
+	// TODO(@vdimir)
 	return nil
 }
 
@@ -214,6 +240,7 @@ func (e *elastic) Close() error {
 }
 
 func (e *elastic) Ready() bool {
+	// TODO(@vdimir)
 	return true
 }
 

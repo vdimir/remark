@@ -43,6 +43,7 @@ type SearcherParams struct {
 	Analyzer  string
 	Sites     []string
 	Endpoint  string
+	Secret    string
 }
 
 // Service provides search for engine

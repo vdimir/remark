@@ -240,6 +240,7 @@ type SearchEngineGroup struct {
 	IndexPath string `long:"index_path" env:"INDEX_PATH" default:"./var/comments.index" description:"path to search index"`
 	Analyzer  string `long:"analyzer" env:"ANALYZER" default:"standard" description:"text analyzer type (language-specific)"`
 	Endpoint  string `long:"endpoint" env:"ENDPOINT" default:"" description:"endpoint for remote indexer (like elasticsearch)"`
+	Secret    string `long:"secret" env:"SECRET" default:"" description:"secret for remote indexer"`
 }
 
 // LoadingCache defines interface for caching
@@ -1004,6 +1005,7 @@ func (s *ServerCommand) makeSearchService() (search.Service, error) {
 		Analyzer:  s.SearchEngine.Analyzer,
 		Sites:     s.Sites,
 		Endpoint:  s.SearchEngine.Endpoint,
+		Secret:    s.SearchEngine.Secret,
 	}
 	return search.NewSearcher(params)
 }

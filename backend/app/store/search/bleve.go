@@ -179,7 +179,7 @@ func (idx bleveIndexer) Search(req *Request) (*ResultPage, error) {
 
 	serp, err := idx.Index.Search(bReq)
 	if err != nil {
-		return nil, errors.Wrap(err, "search error")
+		return nil, errors.Wrap(err, "bleve search error")
 	}
 	log.Printf("[INFO] found %d documents for query %q in %s",
 		serp.Total, req.Query, serp.Took.String())

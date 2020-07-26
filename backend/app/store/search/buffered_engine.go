@@ -197,7 +197,7 @@ func (s *bufferedEngine) readAheadLog(ctx context.Context, reader *bufio.Reader)
 
 		data, err := reader.ReadBytes(0x0)
 		if err != nil {
-			for err != io.EOF {
+			for err == io.EOF {
 				return nil
 			}
 			return err

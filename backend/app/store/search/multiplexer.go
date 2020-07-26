@@ -35,7 +35,6 @@ func (s *multiplexer) IndexDocument(commentID string, comment *store.Comment) er
 		return errors.Errorf("no search index for site %q", comment.Locator.SiteID)
 	}
 	doc := DocFromComment(comment)
-	log.Printf("[DEBUG] index document %s", commentID)
 	return searcher.IndexDocument(doc)
 }
 

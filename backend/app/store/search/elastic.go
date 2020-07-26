@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v7"
+	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"github.com/elastic/go-elasticsearch/v7/esutil"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -28,6 +29,8 @@ type elastic struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 	lockFilePath string
+	analyzer     string
+	ready        bool
 }
 
 type elacticQuery struct {
@@ -38,6 +41,18 @@ type elacticQuery struct {
 	} `json:"query"`
 	Size int `json:"size"`
 	From int `json:"from"`
+}
+
+type mappingProperty struct {
+	Type     string `json:"type"`
+	Analyzer string `json:"analyzer,omitempty"`
+}
+
+type elacticCreateIndexSettings struct {
+	Settings struct{} `json:"settings"`
+	Mappings struct {
+		Properties map[string]mappingProperty `json:"properties"`
+	} `json:"mappings"`
 }
 
 type elacticResponse struct {
@@ -68,7 +83,7 @@ func parseSecret(secret string, cfg *elasticsearch.Config) error {
 	if strings.HasPrefix(secret, "basic:") {
 		userpass := strings.Split(strings.TrimPrefix(secret, "basic:"), ":")
 		if len(userpass) != 2 {
-			return errors.Errorf("secret for basic auth sould have format 'basic:user:pass'")
+			return errors.Errorf("secret for basic auth should have format 'basic:user:pass'")
 		}
 		cfg.Username = userpass[0]
 		cfg.Password = userpass[1]
@@ -118,6 +133,7 @@ func newElasticService(params SearcherParams) (Service, error) {
 		ctx:          ctx,
 		cancel:       cancel,
 		lockFilePath: path.Join(params.IndexPath, "elastic.idx"),
+		analyzer:     params.Analyzer,
 	}, nil
 }
 
@@ -177,6 +193,33 @@ func (e *elastic) buildQuery(req *Request) io.Reader {
 	return &buf
 }
 
+func (e *elastic) buildCreateIndexSettings() io.Reader {
+	var buf bytes.Buffer
+	settings := elacticCreateIndexSettings{}
+	settings.Mappings.Properties = map[string]mappingProperty{}
+
+	settings.Mappings.Properties["text"] = mappingProperty{"text", e.analyzer}
+	settings.Mappings.Properties["username"] = mappingProperty{"keyword", ""}
+	settings.Mappings.Properties["timestamp"] = mappingProperty{"date", ""}
+
+	if err := json.NewEncoder(&buf).Encode(settings); err != nil {
+		log.Fatalf("Error encoding settings: %s", err)
+	}
+
+	return &buf
+}
+
+func checkElasticResponseErr(resp *esapi.Response) error {
+	if resp.IsError() {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return errors.Wrap(err, "error reading the response body")
+		}
+		return errors.Errorf("elastic respond an error %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
 func (e *elastic) Search(req *Request) (*ResultPage, error) {
 	resp, err := e.client.Search(
 		e.client.Search.WithIndex(req.SiteID),
@@ -187,12 +230,8 @@ func (e *elastic) Search(req *Request) (*ResultPage, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.IsError() {
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.Wrap(err, "error reading the response body")
-		}
-		return nil, errors.Errorf("elastic respond an error %d: %s", resp.StatusCode, string(body))
+	if err := checkElasticResponseErr(resp); err != nil {
+		return nil, err
 	}
 
 	var r elacticResponse
@@ -214,30 +253,62 @@ func (e *elastic) Search(req *Request) (*ResultPage, error) {
 
 func (e *elastic) Init(ctx context.Context, eng engine.Interface) error {
 	errs := new(multierror.Error)
+
 	for siteID := range e.bulkIndexers {
 		resp, err := e.client.Indices.Exists([]string{siteID})
 		if err != nil {
-			errs = multierror.Append(err, errors.Wrapf(err, "error getting index status"))
+			errs = multierror.Append(errs, errors.Wrapf(err, "error getting index status"))
 			continue
 		}
+		defer func() {
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				log.Printf("[ERROR] error to close response body %v", closeErr)
+			}
+		}()
+
 		if resp.StatusCode == http.StatusOK {
 			log.Printf("[INFO] site %q exists in index, skipping", siteID)
 			continue
 		}
 		if resp.StatusCode != http.StatusNotFound {
-			errs = multierror.Append(err,
-				errors.Errorf("error getting index status, (code: %d)", resp.StatusCode))
+			errs = multierror.Append(errs, checkElasticResponseErr(resp))
 			continue
 		}
+
+		resp, err = e.client.Indices.Create(
+			siteID,
+			e.client.Indices.Create.WithBody(e.buildCreateIndexSettings()),
+		)
+		if err != nil {
+			errs = multierror.Append(err, errors.Wrapf(err, "error create index"))
+			continue
+		}
+
+		defer func() {
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				log.Printf("[ERROR] error to close response body %v", err)
+			}
+		}()
+
+		if err = checkElasticResponseErr(resp); err != nil {
+			errs = multierror.Append(err, errors.Wrapf(err, "error create index"))
+			continue
+		}
+
 		idxr := &siteIndexer{
 			parent: e,
 			siteID: siteID,
 		}
-		_, err = indexSite(ctx, siteID, eng, idxr)
+		err = indexSite(ctx, siteID, eng, idxr)
 		errs = multierror.Append(err, errs)
 	}
 
-	return errs.ErrorOrNil()
+	err := errs.ErrorOrNil()
+	if err == nil {
+		e.ready = true
+	}
+
+	return err
 }
 
 func (e *elastic) Delete(siteID, commentID string) error {
@@ -282,8 +353,7 @@ func (e *elastic) Close() error {
 }
 
 func (e *elastic) Ready() bool {
-	// TODO(@vdimir)
-	return true
+	return e.ready
 }
 
 func (e *elastic) Type() string {

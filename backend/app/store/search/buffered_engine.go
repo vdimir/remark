@@ -27,6 +27,7 @@ type bufferedEngine struct {
 	queueLock     sync.RWMutex
 	docQueue      deque.Deque
 	queueNotifier chan bool
+	shutdownWait  sync.WaitGroup
 	index         searchEngine
 	flushEvery    time.Duration
 	flushCount    int
@@ -78,6 +79,9 @@ func (s *bufferedEngine) indexBatch() {
 
 func (s *bufferedEngine) indexDocumentWorker() {
 	log.Printf("[INFO] start bleve indexer worker")
+	s.shutdownWait.Add(1)
+	defer s.shutdownWait.Done()
+
 	tmr := time.NewTimer(s.flushEvery)
 	cont := true
 	for cont {
@@ -245,7 +249,10 @@ func (s *bufferedEngine) Delete(commentID string) error {
 // Close search service
 func (s *bufferedEngine) Close() error {
 	close(s.queueNotifier)
-	return s.index.Close()
+	err := s.index.Close()
+
+	s.shutdownWait.Wait()
+	return err
 }
 
 func validateSortField(sortBy string, possible ...string) bool {

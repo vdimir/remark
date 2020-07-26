@@ -177,5 +177,6 @@ func (s *multiplexer) Close() error {
 			errs = multierror.Append(errs, errors.Wrapf(err, "cannot close searcher for %q", siteID))
 		}
 	}
+	log.Print("[INFO] search service closed")
 	return errs.ErrorOrNil()
 }

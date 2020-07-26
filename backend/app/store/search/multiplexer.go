@@ -65,7 +65,7 @@ func (s *multiplexer) Init(ctx context.Context, e engine.Interface) error {
 		var initialized bool
 		initialized, err = seng.Init(ctx)
 		if err == nil && !initialized {
-			_, err = indexSite(ctx, siteID, e, seng)
+			err = indexSite(ctx, siteID, e, seng)
 			errs = multierror.Append(errs, err)
 		}
 		errs = multierror.Append(errs, err)
@@ -82,14 +82,14 @@ func (s *multiplexer) Ready() bool {
 	return s.ready.Load().(bool)
 }
 
-func indexSite(ctx context.Context, siteID string, e engine.Interface, s indexer) (int, error) {
+func indexSite(ctx context.Context, siteID string, e engine.Interface, s indexer) error {
 	log.Printf("[INFO] indexing site %q", siteID)
 	startTime := time.Now()
 
 	req := engine.InfoRequest{Locator: store.Locator{SiteID: siteID}}
 	topics, err := e.Info(req)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	errs := new(multierror.Error)
@@ -109,7 +109,7 @@ func indexSite(ctx context.Context, siteID string, e engine.Interface, s indexer
 			for _, comment := range comments {
 				select {
 				case <-ctx.Done():
-					return indexedCnt, multierror.Append(errs, ctx.Err()).ErrorOrNil()
+					return multierror.Append(errs, ctx.Err()).ErrorOrNil()
 				default:
 				}
 				comment := comment
@@ -123,11 +123,11 @@ func indexSite(ctx context.Context, siteID string, e engine.Interface, s indexer
 			continue
 		}
 		if errs = multierror.Append(errs, err); errs.Len() >= maxErrsDuringStartup {
-			return indexedCnt, errs.ErrorOrNil()
+			return errs.ErrorOrNil()
 		}
 	}
 
-	return indexedCnt, errs.ErrorOrNil()
+	return errs.ErrorOrNil()
 }
 
 // Flush documents buffer for site

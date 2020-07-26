@@ -30,8 +30,8 @@ const textFieldName = "text"
 // see https://github.com/blevesearch/bleve/tree/master/analysis/lang
 var analyzerMapping = map[string]string{
 	"standard": bleveStandard.Name,
-	"en":       bleveEn.AnalyzerName,
-	"ru":       bleveRu.AnalyzerName,
+	"english":  bleveEn.AnalyzerName,
+	"russian":  bleveRu.AnalyzerName,
 }
 
 type bleveBatch struct {

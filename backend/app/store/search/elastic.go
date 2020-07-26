@@ -7,6 +7,8 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"path"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v7"
@@ -25,6 +27,7 @@ type elastic struct {
 	bulkIndexers map[string]esutil.BulkIndexer
 	ctx          context.Context
 	cancel       context.CancelFunc
+	lockFilePath string
 }
 
 type elacticQuery struct {
@@ -52,6 +55,15 @@ type elacticResponse struct {
 	}
 }
 
+type siteIndexer struct {
+	parent *elastic
+	siteID string
+}
+
+func (idx *siteIndexer) IndexDocument(doc *DocumentComment) error {
+	return idx.parent.indexDocument(idx.siteID, doc)
+}
+
 func parseSecret(secret string, cfg *elasticsearch.Config) error {
 	if strings.HasPrefix(secret, "basic:") {
 		userpass := strings.Split(strings.TrimPrefix(secret, "basic:"), ":")
@@ -70,6 +82,7 @@ func parseSecret(secret string, cfg *elasticsearch.Config) error {
 }
 
 func newElasticService(params SearcherParams) (Service, error) {
+
 	if params.Endpoint == "" || params.Secret == "" {
 		return nil, errors.Errorf("elasticsearch parameters are not set")
 	}
@@ -104,17 +117,23 @@ func newElasticService(params SearcherParams) (Service, error) {
 		bulkIndexers: bulkIndexers,
 		ctx:          ctx,
 		cancel:       cancel,
+		lockFilePath: path.Join(params.IndexPath, "elastic.idx"),
 	}, nil
 }
 
 func (e *elastic) IndexDocument(commentID string, comment *store.Comment) error {
 	doc := DocFromComment(comment)
+	siteID := comment.Locator.SiteID
+
+	return e.indexDocument(siteID, doc)
+}
+
+func (e *elastic) indexDocument(siteID string, doc *DocumentComment) error {
 
 	data, err := json.Marshal(doc)
 	if err != nil {
 		return errors.Wrapf(err, "cannot encode document %s: %s", doc.ID, err)
 	}
-	siteID := comment.Locator.SiteID
 
 	if bi, has := e.bulkIndexers[siteID]; has {
 		err = bi.Add(
@@ -194,8 +213,31 @@ func (e *elastic) Search(req *Request) (*ResultPage, error) {
 }
 
 func (e *elastic) Init(ctx context.Context, eng engine.Interface) error {
-	// TODO(@vdimir)
-	return nil
+	errs := new(multierror.Error)
+	for siteID := range e.bulkIndexers {
+		resp, err := e.client.Indices.Exists([]string{siteID})
+		if err != nil {
+			errs = multierror.Append(err, errors.Wrapf(err, "error getting index status"))
+			continue
+		}
+		if resp.StatusCode == http.StatusOK {
+			log.Printf("[INFO] site %q exists in index, skipping", siteID)
+			continue
+		}
+		if resp.StatusCode != http.StatusNotFound {
+			errs = multierror.Append(err,
+				errors.Errorf("error getting index status, (code: %d)", resp.StatusCode))
+			continue
+		}
+		idxr := &siteIndexer{
+			parent: e,
+			siteID: siteID,
+		}
+		_, err = indexSite(ctx, siteID, eng, idxr)
+		errs = multierror.Append(err, errs)
+	}
+
+	return errs.ErrorOrNil()
 }
 
 func (e *elastic) Delete(siteID, commentID string) error {

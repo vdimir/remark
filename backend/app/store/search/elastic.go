@@ -260,11 +260,10 @@ func (e *elastic) Init(ctx context.Context, eng engine.Interface) error {
 			errs = multierror.Append(errs, errors.Wrapf(err, "error getting index status"))
 			continue
 		}
-		defer func() {
-			if closeErr := resp.Body.Close(); closeErr != nil {
-				log.Printf("[ERROR] error to close response body %v", closeErr)
-			}
-		}()
+
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("[ERROR] error to close response body %v", closeErr)
+		}
 
 		if resp.StatusCode == http.StatusOK {
 			log.Printf("[INFO] site %q exists in index, skipping", siteID)
@@ -284,11 +283,9 @@ func (e *elastic) Init(ctx context.Context, eng engine.Interface) error {
 			continue
 		}
 
-		defer func() {
-			if closeErr := resp.Body.Close(); closeErr != nil {
-				log.Printf("[ERROR] error to close response body %v", err)
-			}
-		}()
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("[ERROR] error to close response body %v", err)
+		}
 
 		if err = checkElasticResponseErr(resp); err != nil {
 			errs = multierror.Append(err, errors.Wrapf(err, "error create index"))

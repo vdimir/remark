@@ -52,6 +52,7 @@ func (s *bufferedEngine) indexBatch() {
 		return
 	}
 
+	notifiers := []*idxFlusher{}
 	batch := s.index.NewBatch()
 	for i := 0; i < docCount; i++ {
 		switch val := s.docQueue.PopFront().(type) {
@@ -62,7 +63,7 @@ func (s *bufferedEngine) indexBatch() {
 				break
 			}
 		case *idxFlusher:
-			defer func() { val.notifier <- nil }()
+			notifiers = append(notifiers, val)
 		default:
 			s.queueLock.Unlock()
 			panic(fmt.Sprintf("unknown type %T", val))
@@ -74,6 +75,9 @@ func (s *bufferedEngine) indexBatch() {
 	err := s.index.Batch(batch)
 	if err != nil {
 		log.Printf("[ERROR] error while indexing batch, %v", err)
+	}
+	for _, notifier := range notifiers {
+		notifier.notifier <- err
 	}
 }
 
@@ -130,6 +134,8 @@ func (s *bufferedEngine) writeAheadLog() {
 
 	s.queueLock.Lock()
 	defer s.queueLock.Unlock()
+
+	notifiers := []*idxFlusher{}
 	for s.docQueue.Len() > 0 {
 		switch val := s.docQueue.PopFront().(type) {
 		case *DocumentComment:
@@ -144,13 +150,17 @@ func (s *bufferedEngine) writeAheadLog() {
 			data = append(data, 0x0)
 			_, err = f.Write(data)
 		case *idxFlusher:
-			defer func() { val.notifier <- errors.Errorf("indexer closing") }()
+			notifiers = append(notifiers, val)
 		default:
 			panic(fmt.Sprintf("unknown type %T", val))
 		}
 	}
 	if err != nil {
 		log.Printf("[ERROR] error %v writing log file", err)
+	}
+
+	for _, notifier := range notifiers {
+		notifier.notifier <- errors.Errorf("indexer closing")
 	}
 }
 

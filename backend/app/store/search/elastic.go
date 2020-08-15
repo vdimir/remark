@@ -137,7 +137,7 @@ func newElasticService(params SearcherParams) (Service, error) {
 	}, nil
 }
 
-func (e *elastic) IndexDocument(commentID string, comment *store.Comment) error {
+func (e *elastic) IndexDocument(comment *store.Comment) error {
 	doc := DocFromComment(comment)
 	siteID := comment.Locator.SiteID
 

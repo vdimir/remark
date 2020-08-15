@@ -47,30 +47,30 @@ func TestSearch_SiteMux(t *testing.T) {
 	err := searcher.Init(context.Background(), nil)
 	assert.NoError(t, err)
 
-	searcher.IndexDocument("123456", &store.Comment{
+	err = searcher.IndexDocument(&store.Comment{
 		ID:        "123456",
 		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post1"},
 		Text:      "text 123",
 		User:      store.User{ID: "u1", Name: "user1"},
 		Timestamp: time.Date(2017, 12, 20, 15, 18, 24, 0, time.Local),
 	})
-
-	searcher.IndexDocument("123456", &store.Comment{
+	assert.NoError(t, err)
+	err = searcher.IndexDocument(&store.Comment{
 		ID:        "123456",
 		Locator:   store.Locator{SiteID: "test-site2", URL: "http://example.com/post1"},
 		Text:      "text 345",
 		User:      store.User{ID: "u1", Name: "user1"},
 		Timestamp: time.Date(2017, 12, 20, 15, 20, 24, 0, time.Local),
 	})
-
-	searcher.IndexDocument("123457", &store.Comment{
+	assert.NoError(t, err)
+	err = searcher.IndexDocument(&store.Comment{
 		ID:        "123457",
 		Locator:   store.Locator{SiteID: "test-site2", URL: "http://example.com/post1"},
 		Text:      "foobar 345",
 		User:      store.User{ID: "u1", Name: "user1"},
 		Timestamp: time.Date(2017, 12, 20, 15, 20, 28, 0, time.Local),
 	})
-
+	assert.NoError(t, err)
 	_ = searcher.Flush("test-site")
 	_ = searcher.Flush("test-site2")
 	{
@@ -118,13 +118,14 @@ func TestSearch_Paginate(t *testing.T) {
 	t0 := time.Date(2017, 12, 20, 15, 18, 24, 0, time.Local)
 	for shift := 0; shift < 4; shift++ {
 		cid := fmt.Sprintf("comment%d", shift)
-		searcher.IndexDocument(cid, &store.Comment{
+		err = searcher.IndexDocument(&store.Comment{
 			ID:        cid,
 			Locator:   store.Locator{SiteID: "test-site", URL: fmt.Sprintf("http://example.com/post%d", shift%2)},
 			Text:      "text 123",
 			User:      store.User{ID: "u1", Name: "user1"},
 			Timestamp: t0.Add(time.Duration(shift) * time.Minute),
 		})
+		assert.NoError(t, err)
 	}
 
 	_ = searcher.Flush("test-site")
@@ -196,11 +197,11 @@ func createDB(t *testing.T, commentsPerSite int, sites []string) (e engine.Inter
 func TestSearch_IndexStartup(t *testing.T) {
 	sites := []string{"test-site", "remark", "test-site42"}
 
-	searcher, teardown := createTestService(t, sites)
-	defer teardown()
+	searcher, serviceTeardown := createTestService(t, sites)
+	defer serviceTeardown()
 
-	b, teardown := createDB(t, 42, sites)
-	defer teardown()
+	b, dbTeardown := createDB(t, 42, sites)
+	defer dbTeardown()
 
 	err := searcher.Init(context.Background(), b)
 	assert.NoError(t, err)
@@ -228,7 +229,7 @@ func TestSearch_Delete(t *testing.T) {
 
 	timestamp := time.Date(2017, 12, 20, 15, 18, 24, 0, time.Local)
 
-	err = searcher.IndexDocument("comment1", &store.Comment{
+	err = searcher.IndexDocument(&store.Comment{
 		ID:        "comment1",
 		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post"},
 		Text:      "text 123",
@@ -237,7 +238,7 @@ func TestSearch_Delete(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = searcher.IndexDocument("comment2", &store.Comment{
+	err = searcher.IndexDocument(&store.Comment{
 		ID:        "comment2",
 		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post"},
 		Text:      "text 345",
@@ -272,27 +273,30 @@ func TestSearch_OtherFields(t *testing.T) {
 	err := searcher.Init(context.Background(), nil)
 	assert.NoError(t, err)
 
-	searcher.IndexDocument("123456", &store.Comment{
+	err = searcher.IndexDocument(&store.Comment{
 		ID:        "123456",
 		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post1"},
 		Text:      "text 123",
 		User:      store.User{ID: "u1", Name: "user foo"},
 		Timestamp: time.Date(2017, 12, 18, 15, 18, 24, 0, time.Local),
 	})
-	searcher.IndexDocument("123457", &store.Comment{
+	assert.NoError(t, err)
+	err = searcher.IndexDocument(&store.Comment{
 		ID:        "123457",
 		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post1"},
 		Text:      "text 345",
 		User:      store.User{ID: "u2", Name: "User Bar"},
 		Timestamp: time.Date(2017, 12, 21, 15, 20, 24, 0, time.Local),
 	})
-	searcher.IndexDocument("123458", &store.Comment{
+	assert.NoError(t, err)
+	err = searcher.IndexDocument(&store.Comment{
 		ID:        "123458",
 		Locator:   store.Locator{SiteID: "test-site", URL: "http://example.com/post1"},
 		Text:      "foobar text",
 		User:      store.User{ID: "u2", Name: "User Bar"},
 		Timestamp: time.Date(2017, 12, 25, 16, 20, 28, 0, time.Local),
 	})
+	assert.NoError(t, err)
 
 	_ = searcher.Flush("test-site")
 

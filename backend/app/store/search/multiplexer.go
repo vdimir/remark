@@ -29,7 +29,7 @@ func newMultiplexer(shards map[string]*bufferedEngine, engineType string) *multi
 }
 
 // IndexDocument adds comment to index
-func (s *multiplexer) IndexDocument(commentID string, comment *store.Comment) error {
+func (s *multiplexer) IndexDocument(comment *store.Comment) error {
 	searcher, has := s.shards[comment.Locator.SiteID]
 	if !has {
 		return errors.Errorf("no search index for site %q", comment.Locator.SiteID)

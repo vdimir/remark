@@ -48,7 +48,7 @@ type SearcherParams struct {
 
 // Service provides search for engine
 type Service interface {
-	IndexDocument(commentID string, comment *store.Comment) error
+	IndexDocument(comment *store.Comment) error
 	Init(ctx context.Context, e engine.Interface) error
 	Ready() bool
 	Flush(siteID string) error

@@ -27,7 +27,7 @@ func (e *StoreEngineDecorator) Create(comment store.Comment) (commentID string, 
 	if err != nil {
 		return commentID, err
 	}
-	if err = e.searcher.IndexDocument(commentID, &comment); err != nil {
+	if err = e.searcher.IndexDocument(&comment); err != nil {
 		log.Printf("[WARN] failed to add document to index, %v", err)
 	}
 	return commentID, err
@@ -39,7 +39,7 @@ func (e *StoreEngineDecorator) Update(comment store.Comment) error {
 		return err
 	}
 
-	if err := e.searcher.IndexDocument(comment.ID, &comment); err != nil {
+	if err := e.searcher.IndexDocument(&comment); err != nil {
 		log.Printf("[WARN] failed to update document in index, %v", err)
 	}
 	return nil

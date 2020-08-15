@@ -874,7 +874,7 @@ func (s *DataStore) Last(siteID string, limit int, since time.Time, user store.U
 	return s.alterComments(comments, user), nil
 }
 
-// Search commens using user query
+// Search comments using user query
 func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) (*SearchResultPage, error) {
 	if s.SearchService == nil {
 		return nil, ErrSearchNotEnabled

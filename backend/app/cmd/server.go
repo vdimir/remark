@@ -539,7 +539,7 @@ func (a *serverApp) run(ctx context.Context) error {
 
 			log.Printf("[INFO] all documents indexed")
 			if err != nil {
-				log.Printf("[ERROR] errors ocured during indexing %v", err)
+				log.Printf("[ERROR] errors occurred during indexing %v", err)
 			}
 		}()
 	}
@@ -995,8 +995,9 @@ func (s *ServerCommand) makeSearchService() (search.Service, error) {
 	}
 
 	if s.SearchEngine.IndexPath == "" {
-		return nil, errors.Errorf("wrong search index path %s", s.SearchEngine.IndexPath)
+		return nil, errors.Errorf("search index path is not set")
 	}
+
 	log.Printf("[INFO] make %q search service", s.SearchEngine.Engine)
 
 	params := search.SearcherParams{

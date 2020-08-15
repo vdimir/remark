@@ -282,11 +282,11 @@ func (m *MemData) ListFlags(req engine.FlagRequest) (res []interface{}, err erro
 
 // ListSites returns slice with all existing site ids
 func (m *MemData) ListSites() ([]string, error) {
-    res := make([]string, 0, len(m.posts))
-    for k := range m.posts {
-        res = append(res, k)
-    }
-    return res, nil
+	res := make([]string, 0, len(m.posts))
+	for k := range m.posts {
+		res = append(res, k)
+	}
+	return res, nil
 }
 
 // UserDetail sets or gets single detail value, or gets all details fo§r requested site.

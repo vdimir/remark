@@ -33,7 +33,7 @@ type ResultDoc struct {
 // ResultPage returned from search
 type ResultPage struct {
 	Total     uint64      `json:"total"`
-	Documents []ResultDoc `json:"documetns"`
+	Documents []ResultDoc `json:"documents"`
 }
 
 // SearcherParams parameters to configure engine

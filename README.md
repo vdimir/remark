@@ -786,7 +786,7 @@ type ResultDoc struct {
 
 type ResultPage struct {
   Total     uint64      `json:"total"`
-  Documents []ResultDoc `json:"documetns"`
+  Documents []ResultDoc `json:"documents"`
 }
 ```
 

@@ -391,27 +391,17 @@ func (s *public) countMultiCtrl(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GET /list?site=siteID&limit=20&skip=10 - list posts with comments
+// GET /list?site=siteID&limit=50&skip=10 - list posts with comments
 func (s *public) listCtrl(w http.ResponseWriter, r *http.Request) {
-	maxSearchLimit := 100
 
 	siteID := r.URL.Query().Get("site")
-	limit, skip := 20, 0
+	limit, skip := 0, 0
 
 	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil {
 		limit = v
 	}
-	if v, err := strconv.Atoi(r.URL.Query().Get("skip")); err == nil && v >= 0 {
+	if v, err := strconv.Atoi(r.URL.Query().Get("skip")); err == nil {
 		skip = v
-	}
-
-	if limit <= 0 || maxSearchLimit < limit {
-		rest.SendErrorJSON(w, r,
-			http.StatusBadRequest,
-			errors.Errorf("wrong param"),
-			fmt.Sprintf("wrong limit value. expected to be from 0 to %d", maxSearchLimit),
-			rest.ErrActionRejected)
-		return
 	}
 
 	key := cache.NewKey(siteID).ID(URLKey(r)).Scopes(siteID)
@@ -462,12 +452,28 @@ func (s *public) loadPictureCtrl(w http.ResponseWriter, r *http.Request) {
 
 // GET /search?site=siteID&query=queryText&limit=20&skip=10 - search documents
 func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
+	maxSearchLimit := 100
 	siteID := r.URL.Query().Get("site")
 	query := r.URL.Query().Get("query")
 	sortBy := r.URL.Query().Get("sort")
 
-	limit := s.getNumericParam(r, "limit", 20)
-	skip := s.getNumericParam(r, "skip", 0)
+	limit, skip := 20, 0
+
+	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil {
+		limit = v
+	}
+	if v, err := strconv.Atoi(r.URL.Query().Get("skip")); err == nil {
+		skip = v
+	}
+
+	if limit < 1 || maxSearchLimit < limit {
+		rest.SendErrorJSON(w, r,
+			http.StatusBadRequest,
+			errors.Errorf("wrong param"),
+			fmt.Sprintf("wrong limit value. expected to be from 1 to %d", maxSearchLimit),
+			rest.ErrActionRejected)
+		return
+	}
 
 	key := cache.NewKey(query).ID(URLKey(r)).Scopes(siteID, searchScope)
 	data, err := s.cache.Get(key, func() ([]byte, error) {
@@ -563,12 +569,4 @@ func (s *public) parseSince(r *http.Request) (time.Time, error) {
 		sinceTS = time.Unix(unixTS/1000, 1000000*(unixTS%1000)) // since param in msec timestamp
 	}
 	return sinceTS, nil
-}
-
-func (s *public) getNumericParam(r *http.Request, name string, defaultVal int) int {
-	res, err := strconv.Atoi(r.URL.Query().Get(name))
-	if err != nil {
-		return defaultVal
-	}
-	return res
 }

@@ -23,6 +23,9 @@ services:
             - SECRET
             - STORE_BOLT_PATH=/srv/var/db
             - BACKUP_PATH=/srv/var/backup
+            - SEARCH_ENGINE
+            - SEARCH_ANALYZER
+            - SEARCH_INDEX_PATH=/srv/var/search
             - DEBUG=true
             - AUTH_GOOGLE_CID
             - AUTH_GOOGLE_CSEC

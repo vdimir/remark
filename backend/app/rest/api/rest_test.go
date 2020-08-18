@@ -347,15 +347,16 @@ func randomPath(tempDir, basename, suffix string) (string, error) {
 }
 
 func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
-	return startupTMutDs(t, func(*service.DataStore) {})
-}
-
-func startupTMutDs(t *testing.T, fn func(*service.DataStore)) (ts *httptest.Server, srv *Rest, teardown func()) {
 	tmp := os.TempDir()
-
-	testDB, err := randomPath(tmp, "test-remark", ".db")
-	require.NoError(t, err)
-
+	var testDB string
+	// pick a file name which is not in use for sure
+	for i := 0; i < 10; i++ {
+		testDB = fmt.Sprintf("/%s/test-remark-%d.db", tmp, rand.Int31())
+		_, err := os.Stat(testDB)
+		if err != nil {
+			break
+		}
+	}
 	_ = os.RemoveAll(tmp + "/ava-remark42")
 	_ = os.RemoveAll(tmp + "/pics-remark42")
 
@@ -375,8 +376,6 @@ func startupTMutDs(t *testing.T, fn func(*service.DataStore)) (ts *httptest.Serv
 		MaxVotes:               service.UnlimitedVotes,
 		RestrictedWordsMatcher: restrictedWordsMatcher,
 	}
-
-	fn(dataStore)
 
 	srv = &Rest{
 		DataService: dataStore,

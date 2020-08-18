@@ -926,24 +926,21 @@ func TestRest_Search(t *testing.T) {
 	searchIndex, err := randomPath(tmp, "test-search-remark", "/")
 	require.NoError(t, err)
 
-	var searcher search.Service
-	addSearchService := func(ds *service.DataStore) {
-		ds.SearchService, err = search.NewSearcher(search.SearcherParams{
-			Type:      "bleve",
-			IndexPath: searchIndex,
-			Analyzer:  "standard",
-			Sites:     []string{"remark42"},
-		})
-		searcher = ds.SearchService
+	ts, srv, teardown := startupT(t)
 
-		require.NoError(t, err)
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		err = ds.SearchService.Init(ctx, ds.Engine)
-		require.NoError(t, err)
-		ds.Engine = search.WrapEngine(ds.Engine, ds.SearchService)
-	}
-	ts, _, teardown := startupTMutDs(t, addSearchService)
+	srv.DataService.SearchService, err = search.NewSearcher(search.SearcherParams{
+		Type:      "bleve",
+		IndexPath: searchIndex,
+		Analyzer:  "standard",
+		Sites:     []string{"remark42"},
+	})
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err = srv.DataService.SearchService.Init(ctx, srv.DataService.Engine)
+	require.NoError(t, err)
+	srv.DataService.Engine = search.WrapEngine(srv.DataService.Engine, srv.DataService.SearchService)
 
 	defer teardown()
 
@@ -964,7 +961,7 @@ func TestRest_Search(t *testing.T) {
 		Timestamp: t0.Add(2 * time.Minute)}
 	id3 := addComment(t, c3, ts)
 
-	searcher.Flush("remark42")
+	srv.DataService.SearchService.Flush("remark42")
 
 	{
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=bar")

@@ -25,7 +25,6 @@ type Interface interface {
 	Delete(req DeleteRequest) error                             // Delete post(s), user, comment, user details, or everything
 	Flag(req FlagRequest) (bool, error)                         // set and get flags
 	ListFlags(req FlagRequest) ([]interface{}, error)           // get list of flagged keys, like blocked & verified user
-	ListSites() ([]string, error)                               // get list of all sites
 
 	// UserDetail sets or gets single detail value, or gets all details for requested site
 	// Returns list even for single entry request is a compromise in order to have both single detail getting and setting

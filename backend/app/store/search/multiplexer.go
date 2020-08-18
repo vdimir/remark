@@ -54,16 +54,10 @@ func (s *multiplexer) Init(ctx context.Context, e engine.Interface) error {
 		return nil
 	}
 
-	sites, err := e.ListSites()
-	if err != nil {
-		return err
-	}
 	errs := new(multierror.Error)
 
-	for _, siteID := range sites {
-		seng := s.shards[siteID]
-		var initialized bool
-		initialized, err = seng.Init(ctx)
+	for siteID, seng := range s.shards {
+		initialized, err := seng.Init(ctx)
 		if err == nil && !initialized {
 			err = indexSite(ctx, siteID, e, seng)
 			errs = multierror.Append(errs, err)
@@ -71,7 +65,7 @@ func (s *multiplexer) Init(ctx context.Context, e engine.Interface) error {
 		errs = multierror.Append(errs, err)
 
 	}
-	err = errs.ErrorOrNil()
+	err := errs.ErrorOrNil()
 	if err == nil {
 		s.ready.Store(true)
 	}

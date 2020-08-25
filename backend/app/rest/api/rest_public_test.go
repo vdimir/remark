@@ -970,7 +970,11 @@ func TestRest_Search(t *testing.T) {
 		err = json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
 		require.Equal(t, 2, len(serp.Comments), "should have 2 comments")
-		equalsStringSliceUnordered(t, []string{id2, id3}, []string{serp.Comments[0].ID, serp.Comments[1].ID})
+		expected := sort.StringSlice([]string{id2, id3})
+		actual := sort.StringSlice([]string{serp.Comments[0].ID, serp.Comments[1].ID})
+		expected.Sort()
+		actual.Sort()
+		assert.EqualValues(t, expected, actual)
 	}
 	{
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test")
@@ -979,7 +983,12 @@ func TestRest_Search(t *testing.T) {
 		err = json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
 		require.Equal(t, 2, len(serp.Comments), "should have 2 comments")
-		equalsStringSliceUnordered(t, []string{id1, id2}, []string{serp.Comments[0].ID, serp.Comments[1].ID})
+
+		expected := sort.StringSlice([]string{id1, id2})
+		actual := sort.StringSlice([]string{serp.Comments[0].ID, serp.Comments[1].ID})
+		expected.Sort()
+		actual.Sort()
+		assert.EqualValues(t, expected, actual)
 	}
 	{
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=-timestamp")
@@ -1017,14 +1026,4 @@ func postComment(t *testing.T, url string) {
 	b, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, resp.StatusCode, string(b))
-}
-
-// equalsStringSliceUnordered chechs equality of two string sets
-// Note: passed slices are modified
-func equalsStringSliceUnordered(t *testing.T, expected, actual []string) {
-	if assert.Equal(t, len(expected), len(actual)) {
-		sort.StringSlice(expected).Sort()
-		sort.StringSlice(actual).Sort()
-		assert.Equal(t, expected, actual)
-	}
 }

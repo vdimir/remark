@@ -150,4 +150,3 @@ GET {{host}}/ping
 
 ### search
 GET {{host}}/search?site={{site}}&query={{queryText}}&limit={{limir}}&skip={{skip}}
-

@@ -801,7 +801,6 @@ type SearchHelpPrompt struct {
 
 * `GET /api/v1/search-help` - return search query language prompt in `SearchHelpPrompt`
 
-
 ### Streaming API
 
 Streaming API provide server-sent events for post updates as well as site update

@@ -18,13 +18,13 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-pkgz/auth/token"
-	"github.com/umputun/go-flags"
-	"github.com/umputun/remark42/backend/app/store"
-	"github.com/umputun/remark42/backend/app/store/service"
-	"go.uber.org/goleak"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/umputun/go-flags"
+	"go.uber.org/goleak"
+
+	"github.com/umputun/remark42/backend/app/store"
+	"github.com/umputun/remark42/backend/app/store/service"
 )
 
 func TestServerApp(t *testing.T) {

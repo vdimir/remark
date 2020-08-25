@@ -16,6 +16,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v7/esutil"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/engine"
 )

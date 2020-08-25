@@ -9,12 +9,12 @@ import (
 	"time"
 
 	log "github.com/go-pkgz/lgr"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	bolt "go.etcd.io/bbolt"
+
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/engine"
-	bolt "go.etcd.io/bbolt"
 )
 
 func createTestService(t *testing.T, sites []string) (searcher Service, teardown func()) {

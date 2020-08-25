@@ -354,6 +354,6 @@ func (e *elastic) Ready() bool {
 	return e.ready
 }
 
-func (e *elastic) Type() string {
-	return "elastic"
+func (e *elastic) Help() string {
+	return ""
 }

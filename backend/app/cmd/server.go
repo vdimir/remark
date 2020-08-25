@@ -364,12 +364,8 @@ func (s *ServerCommand) newServerApp() (*serverApp, error) {
 		return nil, errors.Wrap(err, "failed to make search service")
 	}
 
-	if searchService != nil {
-		storeEngine = search.WrapEngine(storeEngine, searchService)
-	}
-
 	dataService := &service.DataStore{
-		Engine:                 storeEngine,
+		Engine:                 search.WrapEngine(storeEngine, searchService),
 		EditDuration:           s.EditDuration,
 		AdminStore:             adminStore,
 		MaxCommentSize:         s.MaxCommentSize,
@@ -533,15 +529,12 @@ func (a *serverApp) run(ctx context.Context) error {
 
 	go a.imageService.Cleanup(ctx) // pictures cleanup for staging images
 
-	if a.dataService.SearchService != nil {
-		go func() {
-			err := a.dataService.SearchService.Init(ctx, a.dataService.Engine)
+	err := a.dataService.SearchService.Init(ctx, a.dataService.Engine)
 
-			log.Printf("[INFO] all documents indexed")
-			if err != nil {
-				log.Printf("[ERROR] errors occurred during indexing %v", err)
-			}
-		}()
+	if err == nil {
+		log.Printf("[INFO] all documents indexed")
+	} else {
+		log.Printf("[ERROR] errors occurred during indexing %v", err)
 	}
 
 	a.restSrv.Run(a.Port)
@@ -989,12 +982,7 @@ func (s *ServerCommand) makeAuthenticator(ds *service.DataStore, avas avatar.Sto
 }
 
 func (s *ServerCommand) makeSearchService() (search.Service, error) {
-	if s.SearchEngine.Engine == "none" {
-		log.Printf("[INFO] search feature disabled")
-		return nil, nil
-	}
-
-	if s.SearchEngine.IndexPath == "" {
+	if s.SearchEngine.IndexPath == "" && s.SearchEngine.Engine != "none" {
 		return nil, errors.Errorf("search index path is not set")
 	}
 

@@ -91,9 +91,6 @@ var nonAdminUser = store.User{}
 // ErrRestrictedWordsFound returned in case comment text contains restricted words
 var ErrRestrictedWordsFound = errors.New("comment contains restricted words")
 
-// ErrSearchNotEnabled returned to search request in case search not enabled
-var ErrSearchNotEnabled = errors.New("search not enabled")
-
 // ErrSearchNotReady occurs on search in not ready engine
 var ErrSearchNotReady = errors.New("search engine not ready")
 
@@ -876,9 +873,6 @@ func (s *DataStore) Last(siteID string, limit int, since time.Time, user store.U
 
 // Search comments using user query
 func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) (*SearchResultPage, error) {
-	if s.SearchService == nil {
-		return nil, ErrSearchNotEnabled
-	}
 	if !s.SearchService.Ready() {
 		return nil, ErrSearchNotReady
 	}
@@ -922,10 +916,7 @@ func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) (*Sear
 func (s *DataStore) SearchHelp() (SearchHelpPrompt, error) {
 	res := SearchHelpPrompt{}
 
-	if s.SearchService == nil {
-		return res, ErrSearchNotEnabled
-	}
-	res.Text = search.Help(s.SearchService.Type())
+	res.Text = s.SearchService.Help()
 	return res, nil
 }
 

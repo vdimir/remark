@@ -23,6 +23,7 @@ import (
 	"github.com/umputun/remark42/backend/app/rest"
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/image"
+	"github.com/umputun/remark42/backend/app/store/search"
 	"github.com/umputun/remark42/backend/app/store/service"
 )
 
@@ -488,7 +489,7 @@ func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, service.ErrSearchNotReady) {
 		rest.SendErrorJSON(w, r, http.StatusBadRequest, err, "can't perform search request", rest.ErrActionRejected)
 		return
-	} else if errors.Is(err, service.ErrSearchNotEnabled) {
+	} else if errors.Is(err, search.ErrSearchNotEnabled) {
 		rest.SendErrorJSON(w, r, http.StatusBadRequest, err, "can't perform search request", rest.ErrActionRejected)
 		return
 	} else if err != nil {
@@ -504,7 +505,7 @@ func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 // GET /search-help - help for search query language
 func (s *public) searchHelpCtrl(w http.ResponseWriter, r *http.Request) {
 	prompt, err := s.dataService.SearchHelp()
-	if errors.Is(err, service.ErrSearchNotEnabled) {
+	if errors.Is(err, search.ErrSearchNotEnabled) {
 		rest.SendErrorJSON(w, r, http.StatusBadRequest, err, "can't get search help text", rest.ErrActionRejected)
 		return
 	} else if err != nil {

@@ -3,8 +3,6 @@ package search
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/engine"
 )
@@ -55,7 +53,7 @@ type Service interface {
 	Flush(siteID string) error
 	Search(req *Request) (*ResultPage, error)
 	Delete(siteID, commentID string) error
-	Type() string
+	Help() string
 	Close() error
 }
 
@@ -67,18 +65,5 @@ func NewSearcher(params SearcherParams) (Service, error) {
 	case "elastic":
 		return newElasticService(params)
 	}
-	available := []string{"bleve"}
-	return nil, errors.Errorf("no search engine %q, available engines %v", params.Type, available)
-}
-
-// Help returns text doc for query language
-func Help(engineType string) string {
-	switch engineType {
-	case "bleve":
-		return "See" + " " +
-			"<a href=\"http://blevesearch.com/docs/Query-String-Query\">" +
-			"blevesearch.com/docs/Query-String-Query</a>" + " " +
-			"for help"
-	}
-	return ""
+	return newNoopService()
 }

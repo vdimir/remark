@@ -158,8 +158,15 @@ func (s *multiplexer) Delete(siteID, commentID string) error {
 }
 
 // Type return engine type
-func (s *multiplexer) Type() string {
-	return s.engineType
+func (s *multiplexer) Help() string {
+	switch s.engineType {
+	case "bleve":
+		return "See" + " " +
+			"<a href=\"http://blevesearch.com/docs/Query-String-Query\">" +
+			"blevesearch.com/docs/Query-String-Query</a>" + " " +
+			"for help"
+	}
+	return ""
 }
 
 // Close releases resources

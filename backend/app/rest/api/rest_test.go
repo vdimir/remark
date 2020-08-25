@@ -333,19 +333,6 @@ func TestRest_cacheControl(t *testing.T) {
 
 }
 
-// randomPath pick a file or folder name which is not in use for sure
-func randomPath(tempDir, basename, suffix string) (string, error) {
-	for i := 0; i < 10; i++ {
-		fname := fmt.Sprintf("/%s/%s-%d%s", tempDir, basename, rand.Int31(), suffix)
-		fmt.Printf("fname %q", fname)
-		_, err := os.Stat(fname)
-		if err != nil {
-			return fname, nil
-		}
-	}
-	return "", errors.Errorf("cannot create temp file")
-}
-
 func startupT(t *testing.T) (ts *httptest.Server, srv *Rest, teardown func()) {
 	tmp := os.TempDir()
 	var testDB string

@@ -530,9 +530,7 @@ func (a *serverApp) run(ctx context.Context) error {
 
 	go a.imageService.Cleanup(ctx) // pictures cleanup for staging images
 
-	err := a.dataService.SearchService.Init(ctx, a.dataService.Engine)
-
-	if err == nil {
+	if err := a.dataService.SearchService.Init(ctx, a.dataService.Engine); err == nil {
 		log.Printf("[INFO] all documents indexed")
 	} else {
 		log.Printf("[ERROR] errors occurred during indexing %v", err)

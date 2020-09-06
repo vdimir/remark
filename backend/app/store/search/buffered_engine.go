@@ -83,7 +83,6 @@ func (s *bufferedEngine) indexBatch() {
 
 func (s *bufferedEngine) indexDocumentWorker() {
 	log.Printf("[INFO] start bleve indexer worker")
-	s.shutdownWait.Add(1)
 	defer s.shutdownWait.Done()
 
 	tmr := time.NewTimer(s.flushEvery)

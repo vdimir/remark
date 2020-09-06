@@ -81,6 +81,7 @@ func newBleve(indexPath, analyzer string) (s *bufferedEngine, err error) {
 		indexPath:     indexPath,
 	}
 
+	eng.shutdownWait.Add(1)
 	go eng.indexDocumentWorker()
 
 	return eng, nil

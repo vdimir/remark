@@ -71,10 +71,8 @@ func TestSearch_SiteMux(t *testing.T) {
 		Timestamp: time.Date(2017, 12, 20, 15, 20, 28, 0, time.Local),
 	})
 	assert.NoError(t, err)
-	err = searcher.Flush("test-site")
-	assert.NoError(t, err)
-	err = searcher.Flush("test-site2")
-	assert.NoError(t, err)
+	assert.NoError(t, searcher.Flush("test-site"))
+	assert.NoError(t, searcher.Flush("test-site2"))
 	{
 		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 3})
 		require.NoError(t, err)
@@ -130,8 +128,7 @@ func TestSearch_Paginate(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	err = searcher.Flush("test-site")
-	assert.NoError(t, err)
+	assert.NoError(t, searcher.Flush("test-site"))
 	{
 		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, From: 0})
 		require.NoError(t, err)
@@ -210,8 +207,7 @@ func TestSearch_IndexStartup(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, siteID := range sites {
-		err = searcher.Flush(siteID)
-		assert.NoError(t, err)
+		assert.NoError(t, searcher.Flush(siteID))
 	}
 
 	for _, siteID := range sites {
@@ -251,8 +247,7 @@ func TestSearch_Delete(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = searcher.Flush("test-site")
-	assert.NoError(t, err)
+	assert.NoError(t, searcher.Flush("test-site"))
 
 	{
 		res, searchErr := searcher.Search(&Request{SiteID: "test-site", Query: "text", SortBy: "+timestamp", Limit: 10})
@@ -261,6 +256,7 @@ func TestSearch_Delete(t *testing.T) {
 		assert.Equal(t, "comment1", res.Documents[0].ID)
 		assert.Equal(t, "comment2", res.Documents[1].ID)
 	}
+
 	err = searcher.Delete("test-site", "comment1")
 	require.NoError(t, err)
 
@@ -303,8 +299,7 @@ func TestSearch_OtherFields(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	err = searcher.Flush("test-site")
-	assert.NoError(t, err)
+	assert.NoError(t, searcher.Flush("test-site"))
 
 	// username
 	{

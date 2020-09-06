@@ -81,6 +81,9 @@ func (s *bufferedEngine) indexBatch() {
 	}
 }
 
+// indexDocumentWorker processes documents from current batch in a loop
+// exit when queueNotifier is closed and decrements shutdownWait counter
+// Note: shutdownWait should be incremented before this call
 func (s *bufferedEngine) indexDocumentWorker() {
 	log.Printf("[INFO] start bleve indexer worker")
 	defer s.shutdownWait.Done()

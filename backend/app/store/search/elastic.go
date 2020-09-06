@@ -81,20 +81,20 @@ func (idx *siteIndexer) IndexDocument(doc *DocumentComment) error {
 }
 
 func parseSecret(secret string, cfg *elasticsearch.Config) error {
-	if strings.HasPrefix(secret, "basic:") {
+	switch {
+	case strings.HasPrefix(secret, "basic:"):
 		userpass := strings.Split(strings.TrimPrefix(secret, "basic:"), ":")
 		if len(userpass) != 2 {
 			return errors.Errorf("secret for basic auth should have format 'basic:user:pass'")
 		}
-		cfg.Username = userpass[0]
-		cfg.Password = userpass[1]
-	} else if strings.HasPrefix(secret, "token:") {
+		cfg.Username, cfg.Password = userpass[0], userpass[1]
+		return nil
+	case strings.HasPrefix(secret, "token:"):
 		cfg.APIKey = strings.TrimPrefix(secret, "token:")
-	} else {
-		allowed := []string{"basic:", "token:"}
-		return errors.Errorf("secret should starts with one of prefixes: %v", allowed)
+		return nil
 	}
-	return nil
+	allowed := []string{"basic:", "token:"}
+	return errors.Errorf("secret should starts with one of prefixes: %v", allowed)
 }
 
 func newElasticService(params SearcherParams) (Service, error) {
@@ -112,7 +112,7 @@ func newElasticService(params SearcherParams) (Service, error) {
 
 	client, err := elasticsearch.NewClient(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "filed to create elastic client")
 	}
 
 	bulkIndexers := map[string]esutil.BulkIndexer{}
@@ -138,6 +138,7 @@ func newElasticService(params SearcherParams) (Service, error) {
 	}, nil
 }
 
+// IndexDocument adds comment to elastic index
 func (e *elastic) IndexDocument(comment *store.Comment) error {
 	doc := DocFromComment(comment)
 	siteID := comment.Locator.SiteID
@@ -221,6 +222,7 @@ func checkElasticResponseErr(resp *esapi.Response) error {
 	return nil
 }
 
+// Search performs search request using elastic
 func (e *elastic) Search(req *Request) (*ResultPage, error) {
 	resp, err := e.client.Search(
 		e.client.Search.WithIndex(req.SiteID),
@@ -252,52 +254,53 @@ func (e *elastic) Search(req *Request) (*ResultPage, error) {
 	return serp, nil
 }
 
+func (e *elastic) initSite(ctx context.Context, siteID string, eng engine.Interface) error {
+	resp, err := e.client.Indices.Exists([]string{siteID})
+	if err != nil {
+		return errors.Wrapf(err, "error getting index status")
+	}
+
+	if closeErr := resp.Body.Close(); closeErr != nil {
+		log.Printf("[ERROR] error to close response body %v", closeErr)
+	}
+
+	if resp.StatusCode == http.StatusOK {
+		log.Printf("[INFO] site %q exists in index, skipping", siteID)
+		return nil
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		return checkElasticResponseErr(resp)
+	}
+
+	resp, err = e.client.Indices.Create(
+		siteID,
+		e.client.Indices.Create.WithBody(e.buildCreateIndexSettings()),
+	)
+	if err != nil {
+		return errors.Wrapf(err, "error create index")
+	}
+
+	if closeErr := resp.Body.Close(); closeErr != nil {
+		log.Printf("[ERROR] error to close response body %v", closeErr)
+	}
+
+	if err = checkElasticResponseErr(resp); err != nil {
+		return errors.Wrapf(err, "error create index")
+	}
+
+	idxr := &siteIndexer{
+		parent: e,
+		siteID: siteID,
+	}
+	return indexSite(ctx, siteID, eng, idxr)
+}
+
+// Init elastic engine
 func (e *elastic) Init(ctx context.Context, eng engine.Interface) error {
 	errs := new(multierror.Error)
 
 	for siteID := range e.bulkIndexers {
-		resp, err := e.client.Indices.Exists([]string{siteID})
-		if err != nil {
-			errs = multierror.Append(errs, errors.Wrapf(err, "error getting index status"))
-			continue
-		}
-
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			log.Printf("[ERROR] error to close response body %v", closeErr)
-		}
-
-		if resp.StatusCode == http.StatusOK {
-			log.Printf("[INFO] site %q exists in index, skipping", siteID)
-			continue
-		}
-		if resp.StatusCode != http.StatusNotFound {
-			errs = multierror.Append(errs, checkElasticResponseErr(resp))
-			continue
-		}
-
-		resp, err = e.client.Indices.Create(
-			siteID,
-			e.client.Indices.Create.WithBody(e.buildCreateIndexSettings()),
-		)
-		if err != nil {
-			errs = multierror.Append(err, errors.Wrapf(err, "error create index"))
-			continue
-		}
-
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			log.Printf("[ERROR] error to close response body %v", closeErr)
-		}
-
-		if err = checkElasticResponseErr(resp); err != nil {
-			errs = multierror.Append(err, errors.Wrapf(err, "error create index"))
-			continue
-		}
-
-		idxr := &siteIndexer{
-			parent: e,
-			siteID: siteID,
-		}
-		err = indexSite(ctx, siteID, eng, idxr)
+		err := e.initSite(ctx, siteID, eng)
 		errs = multierror.Append(err, errs)
 	}
 
@@ -309,34 +312,32 @@ func (e *elastic) Init(ctx context.Context, eng engine.Interface) error {
 	return err
 }
 
+// Delete comment from index
 func (e *elastic) Delete(siteID, commentID string) error {
-	var err error
 	if bi, has := e.bulkIndexers[siteID]; has {
-		err = bi.Add(
-			e.ctx,
-			esutil.BulkIndexerItem{
-				Action:     "delete",
-				DocumentID: commentID,
-				OnFailure: func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem, err error) {
-					if err != nil {
-						log.Printf("[ERROR] failed to delete document: %s", err)
-					} else {
-						log.Printf("[ERROR]: %s: %s", res.Error.Type, res.Error.Reason)
-					}
-				},
+		item := esutil.BulkIndexerItem{
+			Action:     "delete",
+			DocumentID: commentID,
+			OnFailure: func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem, err error) {
+				if err != nil {
+					log.Printf("[ERROR] failed to delete document: %s", err)
+					return
+				}
+				log.Printf("[ERROR]: %s: %s", res.Error.Type, res.Error.Reason)
 			},
-		)
-	} else {
-		err = errors.Errorf("index for site %s does not found", siteID)
+		}
+		return bi.Add(e.ctx, item)
 	}
-	return err
+	return errors.Errorf("index for site %s does not found", siteID)
 }
 
+// Flush all unprocessed documents
 func (e *elastic) Flush(siteID string) error {
 	// TODO(@vdimir)
 	return nil
 }
 
+// Close engine
 func (e *elastic) Close() error {
 	e.cancel()
 
@@ -350,10 +351,12 @@ func (e *elastic) Close() error {
 	return errs.ErrorOrNil()
 }
 
+// Ready returns true if engine ready to go
 func (e *elastic) Ready() bool {
 	return e.ready
 }
 
+// Help returns help message for user
 func (e *elastic) Help() string {
 	return ""
 }

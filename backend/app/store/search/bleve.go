@@ -42,6 +42,7 @@ type bleveIndexer struct {
 	bleve.Index
 }
 
+// Index adds document to current batch
 func (b bleveBatch) Index(id string, data *DocumentComment) error {
 	return b.Batch.Index(id, data)
 }
@@ -56,21 +57,28 @@ func newBleve(indexPath, analyzer string) (s *bufferedEngine, err error) {
 	}
 	var index bleve.Index
 
-	if st, errOpen := os.Stat(indexPath); os.IsNotExist(errOpen) {
+	st, errOpen := os.Stat(indexPath)
+	switch {
+	case os.IsNotExist(errOpen):
+		// create new
 		log.Printf("[INFO] creating new search index %s", indexPath)
 		index, err = bleve.New(indexPath, createIndexMapping(analyzerMapping[analyzer]))
-	} else if errOpen == nil {
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot open index")
+		}
+	case errOpen == nil:
+		// open existing
 		if !st.IsDir() {
 			return nil, errors.Errorf("index path should be a directory")
 		}
 		log.Printf("[INFO] opening existing search index %s", indexPath)
 		index, err = bleve.Open(indexPath)
-	} else {
-		err = errOpen
-	}
-
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot create/open index")
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot create index")
+		}
+	default:
+		// error
+		return nil, errors.Wrap(err, "cannot open index")
 	}
 
 	eng := &bufferedEngine{
@@ -82,6 +90,7 @@ func newBleve(indexPath, analyzer string) (s *bufferedEngine, err error) {
 	}
 
 	eng.shutdownWait.Add(1)
+	// exit when queueNotifier is closed and decrements shutdownWait counter
 	go eng.indexDocumentWorker()
 
 	return eng, nil
@@ -105,10 +114,12 @@ func newBleveService(params SearcherParams) (s Service, err error) {
 	return newMultiplexer(shards, params.Type), err
 }
 
+// NewBatch creates new empty bleve batch
 func (idx bleveIndexer) NewBatch() indexerBatch {
 	return bleveBatch{idx.Index.NewBatch()}
 }
 
+// Batch indexes whole batch of documents
 func (idx bleveIndexer) Batch(batch indexerBatch) error {
 	b := batch.(bleveBatch).Batch
 	return idx.Index.Batch(b)
@@ -164,6 +175,7 @@ func commentDocumentMapping(textAnalyzer string) *mapping.DocumentMapping {
 	return commentMapping
 }
 
+// Search performs search request
 func (idx bleveIndexer) Search(req *Request) (*ResultPage, error) {
 	bQuery := bleve.NewQueryStringQuery(req.Query)
 	bReq := bleve.NewSearchRequestOptions(bQuery, req.Limit, req.From, false)
@@ -189,10 +201,12 @@ func (idx bleveIndexer) Search(req *Request) (*ResultPage, error) {
 	return result, nil
 }
 
+// Delete document from index
 func (idx bleveIndexer) Delete(id string) error {
 	return idx.Index.Delete(id)
 }
 
+// Close indexer
 func (idx bleveIndexer) Close() error {
 	return idx.Index.Close()
 }

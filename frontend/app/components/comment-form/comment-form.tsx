@@ -535,7 +535,7 @@ export class CommentForm extends Component<Props, State> {
                   {this.renderMarkdownTip()}
                   <FormattedMessage id="commentForm.subscribe-by" defaultMessage="Subscribe by" />{' '}
                   <SubscribeByRSS userId={props.user !== null ? props.user.id : null} />
-                  {StaticStore.config.email_notifications && (
+                  {StaticStore.config.email_notifications && StaticStore.query.show_email_subscription && (
                     <Fragment>
                       {' '}
                       <FormattedMessage id="commentForm.subscribe-or" defaultMessage="or" /> <SubscribeByEmail />
@@ -552,18 +552,20 @@ export class CommentForm extends Component<Props, State> {
           )}
         </div>
 
-        {// TODO: it can be more elegant;
-        // for example it can render full comment component here (or above textarea on mobile)
-        !!preview && (
-          <div className="comment-form__preview-wrapper">
-            <div
-              className={b('comment-form__preview', {
-                mix: b('raw-content', {}, { theme: props.theme }),
-              })}
-              dangerouslySetInnerHTML={{ __html: preview }}
-            />
-          </div>
-        )}
+        {
+          // TODO: it can be more elegant;
+          // for example it can render full comment component here (or above textarea on mobile)
+          !!preview && (
+            <div className="comment-form__preview-wrapper">
+              <div
+                className={b('comment-form__preview', {
+                  mix: b('raw-content', {}, { theme: props.theme }),
+                })}
+                dangerouslySetInnerHTML={{ __html: preview }}
+              />
+            </div>
+          )
+        }
       </form>
     );
   }

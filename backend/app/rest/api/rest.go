@@ -51,7 +51,7 @@ type Rest struct {
 	AnonVote        bool
 	WebRoot         string
 	RemarkURL       string
-	AdminEmail      string
+	AdminEmail      []string
 	ReadOnlyAge     int
 	SharedSecret    string
 	ScoreThresholds struct {
@@ -62,6 +62,7 @@ type Rest struct {
 	EmailNotifications bool
 	EmojiEnabled       bool
 	SimpleView         bool
+	ProxyCORS          bool
 
 	SSLConfig   SSLConfig
 	httpsServer *http.Server
@@ -188,15 +189,19 @@ func (s *Rest) routes() chi.Router {
 
 	s.pubRest, s.privRest, s.adminRest, s.rssRest = s.controllerGroups() // assign controllers for groups
 
-	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-XSRF-Token", "X-JWT"},
-		ExposedHeaders:   []string{"Authorization"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	})
-	router.Use(corsMiddleware.Handler)
+	if s.ProxyCORS {
+		log.Printf("[WARN] internal CORS disabled")
+	} else {
+		corsMiddleware := cors.New(cors.Options{
+			AllowedOrigins:   []string{"*"},
+			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-XSRF-Token", "X-JWT"},
+			ExposedHeaders:   []string{"Authorization"},
+			AllowCredentials: true,
+			MaxAge:           300,
+		})
+		router.Use(corsMiddleware.Handler)
+	}
 
 	ipFn := func(ip string) string { return store.HashValue(ip, s.SharedSecret)[:12] } // logger uses it for anonymization
 	logInfoWithBody := logger.New(logger.Log(log.Default()), logger.WithBody, logger.IPfn(ipFn), logger.Prefix("[INFO]")).Handler
@@ -205,7 +210,7 @@ func (s *Rest) routes() chi.Router {
 
 	router.Group(func(r chi.Router) {
 		r.Use(middleware.Timeout(5 * time.Second))
-		r.Use(logInfoWithBody, tollbooth_chi.LimitHandler(tollbooth.NewLimiter(5, nil)), middleware.NoCache)
+		r.Use(logInfoWithBody, tollbooth_chi.LimitHandler(tollbooth.NewLimiter(10, nil)), middleware.NoCache)
 		r.Mount("/auth", authHandler)
 	})
 

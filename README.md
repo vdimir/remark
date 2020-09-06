@@ -110,10 +110,10 @@ _this is the recommended way to run remark42_
 | store.bolt.path         | STORE_BOLT_PATH         | `./var`                  | path to data directory                          |
 | store.bolt.timeout      | STORE_BOLT_TIMEOUT      | `30s`                    | boltdb access timeout                           |
 | admin.shared.id         | ADMIN_SHARED_ID         |                          | admin names (list of user ids), _multi_         |
-| admin.shared.email      | ADMIN_SHARED_EMAIL      | `admin@${REMARK_URL}`    | admin email                                     |
+| admin.shared.email      | ADMIN_SHARED_EMAIL      | `admin@${REMARK_URL}`    | admin emails, _multi_                           |
 | backup                  | BACKUP_PATH             | `./var/backup`           | backups location                                |
 | max-back                | MAX_BACKUP_FILES        | `10`                     | max backup files to keep                        |
-| cache.type              | CACHE_TYPE              | `mem`                    | type of cache, `redis_pub_sub` or `mem` or `none`       |
+| cache.type              | CACHE_TYPE              | `mem`                    | type of cache, `redis_pub_sub` or `mem` or `none` |
 | cache.redis_addr        | CACHE_REDIS_ADDR        | `127.0.0.1:6379`         | address of redis PubSub instance, turn `redis_pub_sub` cache on for distributed cache |
 | cache.max.items         | CACHE_MAX_ITEMS         | `1000`                   | max number of cached items, `0` - unlimited     |
 | cache.max.value         | CACHE_MAX_VALUE         | `65536`                  | max size of cached value, `0` - unlimited       |
@@ -187,6 +187,7 @@ _this is the recommended way to run remark42_
 | image-proxy.cache-external | IMAGE_PROXY_CACHE_EXTERNAL | `false`            | enable caching external images to current image storage |
 | emoji                   | EMOJI                   | `false`                  | enable emoji support                            |
 | simple-view             | SIMPLE_VIEW             | `false`                  | minimized UI with basic info only               |
+| proxy-cors              | PROXY_CORS              | `false`                  | disable internal CORS and delegate it to proxy  |
 | port                    | REMARK_PORT             | `8080`                   | web server port                                 |
 | web-root                | REMARK_WEB_ROOT         | `./web`                  | web server root directory                       |
 | update-limit            | UPDATE_LIMIT            | `0.5`                    | updates/sec limit                               |
@@ -454,6 +455,10 @@ Add this snippet to the bottom of web page:
     theme: 'dark', // optional param; if it isn't defined default value ('light') will be used
     page_title: 'Moving to Remark42', // optional param; if it isn't defined `document.title` will be used
     locale: 'en' // set up locale and language, if it isn't defined default value ('en') will be used
+    show_email_subscription: false // optional param; by default it is `true` and you can see email subscription feature
+                                   // in interface when enable it from backend side
+                                   // if you set this param in `false` you will get notifications email notifications as admin
+                                   // but your users won't have interface for subscription
   };
 
   (function(c) {
@@ -474,6 +479,8 @@ And then add this node in the place where you want to see Remark42 widget:
 ```
 
 After that widget will be rendered inside this node.
+
+If you want to set this up on a Single Page App, see [/docs/spa.md](/docs/spa.md).
 
 ##### Themes
 
@@ -579,11 +586,14 @@ To bring it up run:
 
 ```bash
 # if you mainly work on backend
-docker-compose -f compose-dev-backend.yml build
-docker-compose -f compose-dev-backend.yml up
+cp compose-dev-backend.yml compose-private.yml
 # if you mainly work on frontend
-docker-compose -f compose-dev-frontend.yml build
-docker-compose -f compose-dev-frontend.yml up
+cp compose-dev-frontend.yml compose-private.yml
+# now, edit / debug `compose-private.yml` to your heart's content.
+
+# build and run
+docker-compose -f compose-private.yml build
+docker-compose -f compose-private.yml up
 ```
 
 It starts Remark42 on `127.0.0.1:8080` and adds local OAuth2 provider “Dev”.
@@ -633,7 +643,7 @@ You can attach to locally running backend by providing `REMARK_URL` environment 
 npx cross-env REMARK_URL=http://127.0.0.1:8080 npm start
 ```
 
-The best way for start local developer enviroment:
+The best way for start local developer environment:
 ```sh
 cp compose-dev-frontend.yml compose-private-frontend.yml
 docker-compose -f compose-private-frontend.yml up --build

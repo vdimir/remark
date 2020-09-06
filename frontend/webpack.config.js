@@ -57,7 +57,7 @@ const postCssLoader = wrap => ({
       require('postcss-simple-vars'),
       require('postcss-nested'),
       require('postcss-calc'),
-      require('autoprefixer')({ overrideBrowserslist: ['> 1%'] }),
+      require('autoprefixer'),
       require('postcss-url')({ url: 'inline', maxSize: 5 }),
       wrap ? require('postcss-prefixwrap')(`#${NODE_ID}`, { ignoredSelectors: [':root'] }) : false,
       require('postcss-csso'),
@@ -112,12 +112,15 @@ module.exports = () => ({
           },
           {
             test: /\.js(x?)$/,
-            use: [{ loader: 'babel-loader', options: { configFile: babelConfigPath } }],
+            use: [{ loader: 'babel-loader', options: { cacheDirectory: true, configFile: babelConfigPath } }],
             ...getExcluded(),
           },
           {
             test: /\.ts(x?)$/,
-            use: [{ loader: 'babel-loader', options: { configFile: babelConfigPath } }, 'ts-loader'],
+            use: [
+              { loader: 'babel-loader', options: { cacheDirectory: true, configFile: babelConfigPath } },
+              'ts-loader',
+            ],
             ...getExcluded(),
           },
           {
@@ -209,7 +212,12 @@ module.exports = () => ({
             openAnalyzer: false,
           }),
         ]),
-    new Copy(['./deleteme.html', './markdown-help.html']),
+    new Copy({
+      patterns: [
+        { from: './deleteme.html', to: 'deleteme.html' },
+        { from: './markdown-help.html', to: 'markdown-help.html' },
+      ],
+    }),
   ],
   watchOptions: {
     ignored: /(node_modules|\.vendor\.js$)/,

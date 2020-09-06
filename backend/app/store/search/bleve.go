@@ -125,6 +125,8 @@ func (idx bleveIndexer) Batch(batch indexerBatch) error {
 	return idx.Index.Batch(b)
 }
 
+// convertBleveSerp converts search result
+// from bleve internal representation to ResultPage that would passed to user from this module
 func convertBleveSerp(bleveResult *bleve.SearchResult) *ResultPage {
 	result := ResultPage{
 		Total:     bleveResult.Total,
@@ -133,7 +135,7 @@ func convertBleveSerp(bleveResult *bleve.SearchResult) *ResultPage {
 	for _, r := range bleveResult.Hits {
 		url, hasURL := r.Fields[urlFieldName].(string)
 		if !hasURL {
-			panic(fmt.Sprintf("cannot find %q in %v", urlFieldName, r.Fields))
+			log.Fatalf("cannot find %q in %v", urlFieldName, r.Fields)
 		}
 
 		d := ResultDoc{

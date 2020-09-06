@@ -159,15 +159,15 @@ func (s *bufferedEngine) dumpAheadLog() {
 				continue
 			}
 			err = dumpDoc(f, val)
+			if err != nil {
+				log.Printf("[ERROR] error %v writing log file", err)
+			}
 		case *idxFlusher:
 			// we will send error to all waiters, because indexer will not process this documents now
 			notifiers = append(notifiers, val)
 		default:
 			panic(fmt.Sprintf("unknown type %T", val))
 		}
-	}
-	if err != nil {
-		log.Printf("[ERROR] error %v writing log file", err)
 	}
 
 	for _, notifier := range notifiers {

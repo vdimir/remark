@@ -77,6 +77,28 @@ func (s *multiplexer) Ready() bool {
 	return s.ready.Load().(bool)
 }
 
+func indexTopic(ctx context.Context, comments []store.Comment, e engine.Interface, s indexer) (int, *multierror.Error) {
+	errs := new(multierror.Error)
+
+	indexedCnt := 0
+	for _, comment := range comments {
+		select {
+		case <-ctx.Done():
+			return indexedCnt, multierror.Append(errs, ctx.Err())
+		default:
+		}
+		comment := comment
+		doc := DocFromComment(&comment)
+		err := s.IndexDocument(doc)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			continue
+		}
+		indexedCnt++
+	}
+	return indexedCnt, errs
+}
+
 func indexSite(ctx context.Context, siteID string, e engine.Interface, s indexer) error {
 	log.Printf("[INFO] indexing site %q", siteID)
 	startTime := time.Now()
@@ -84,45 +106,32 @@ func indexSite(ctx context.Context, siteID string, e engine.Interface, s indexer
 	req := engine.InfoRequest{Locator: store.Locator{SiteID: siteID}}
 	topics, err := e.Info(req)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to get topics for site %q", siteID)
 	}
 
 	errs := new(multierror.Error)
 	indexedCnt := 0
-	defer func() {
-		err = errs.ErrorOrNil()
-		log.Printf("[INFO] %d documents indexed for site %q in %v. errors: %v",
-			indexedCnt, siteID, time.Since(startTime), err)
-	}()
 
 	for i := len(topics) - 1; i >= 0; i-- {
-		topic := topics[i]
-		locator := store.Locator{SiteID: siteID, URL: topic.URL}
+		locator := store.Locator{SiteID: siteID, URL: topics[i].URL}
 		req := engine.FindRequest{Locator: locator, Since: time.Time{}}
 		comments, err := e.Find(req)
-		if err == nil {
-			for _, comment := range comments {
-				select {
-				case <-ctx.Done():
-					return multierror.Append(errs, ctx.Err()).ErrorOrNil()
-				default:
-				}
-				comment := comment
-				doc := DocFromComment(&comment)
-				if err = s.IndexDocument(doc); err == nil {
-					indexedCnt++
-				}
-			}
-		}
-		if err == nil {
+		if err != nil {
+			errs = multierror.Append(errs, err)
 			continue
 		}
-		if errs = multierror.Append(errs, err); errs.Len() >= maxErrsDuringStartup {
-			return errs.ErrorOrNil()
+		cnt, topicErrs := indexTopic(ctx, comments, e, s)
+		indexedCnt += cnt
+
+		if errs = multierror.Append(errs, topicErrs.Errors...); errs.Len() >= maxErrsDuringStartup {
+			break
 		}
 	}
+	err = errs.ErrorOrNil()
+	log.Printf("[INFO] %d documents indexed for site %q in %v. errors: %v",
+		indexedCnt, siteID, time.Since(startTime), err)
 
-	return errs.ErrorOrNil()
+	return err
 }
 
 // Flush documents buffer for site

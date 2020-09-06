@@ -22,7 +22,7 @@ type idxFlusher struct {
 }
 
 // bufferedEngine provides common functionality around searchEngine,
-// like buffering, startup/shotdown handling etc
+// like buffering, startup/shutdown handling etc
 type bufferedEngine struct {
 	queueLock     sync.RWMutex
 	docQueue      deque.Deque
@@ -165,7 +165,7 @@ func (s *bufferedEngine) writeAheadLog() {
 }
 
 // Init engine. It loads unindexed comments from ahead log saved from buffer on shutdown
-// Return true if engine initalizated before, false means cold start
+// Return true if engine initialized before, false means cold start
 func (s *bufferedEngine) Init(ctx context.Context) (bool, error) {
 	// TODO(@vdimir) add tests for this part
 
@@ -251,7 +251,7 @@ func (s *bufferedEngine) Search(req *Request) (*ResultPage, error) {
 // Delete comment from index
 func (s *bufferedEngine) Delete(commentID string) error {
 	if err := s.index.Delete(commentID); err != nil {
-		return errors.Wrapf(err, "cannot detele comment %q from search index", commentID)
+		return errors.Wrapf(err, "cannot delete comment %q from search index", commentID)
 	}
 	return nil
 }

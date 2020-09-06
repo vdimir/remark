@@ -149,4 +149,4 @@ X-JWT: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJyZW1hcmsiLCJleHAiOjE2NTc3
 GET {{host}}/ping
 
 ### search
-GET {{host}}/search?site={{site}}&query={{queryText}}&limit={{limir}}&skip={{skip}}
+GET {{host}}/search?site={{site}}&query={{queryText}}&limit={{limit}}&skip={{skip}}

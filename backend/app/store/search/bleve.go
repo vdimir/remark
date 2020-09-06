@@ -61,7 +61,7 @@ func newBleve(indexPath, analyzer string) (s *bufferedEngine, err error) {
 		index, err = bleve.New(indexPath, createIndexMapping(analyzerMapping[analyzer]))
 	} else if errOpen == nil {
 		if !st.IsDir() {
-			return nil, errors.Errorf("index path shoule be a directory")
+			return nil, errors.Errorf("index path should be a directory")
 		}
 		log.Printf("[INFO] opening existing search index %s", indexPath)
 		index, err = bleve.Open(indexPath)

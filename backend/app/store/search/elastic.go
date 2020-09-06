@@ -23,7 +23,7 @@ import (
 
 // elastic implements Service directly (not searchEngine)
 // because it has own mechanisms for batching
-// and do not reuire additional housekeeping
+// and do not require additional maintenance
 type elastic struct {
 	client       *elasticsearch.Client
 	bulkIndexers map[string]esutil.BulkIndexer
@@ -34,7 +34,7 @@ type elastic struct {
 	ready        bool
 }
 
-type elacticQuery struct {
+type elasticQuery struct {
 	Query struct {
 		Match struct {
 			Text string `json:"text"`
@@ -49,14 +49,14 @@ type mappingProperty struct {
 	Analyzer string `json:"analyzer,omitempty"`
 }
 
-type elacticCreateIndexSettings struct {
+type elasticCreateIndexSettings struct {
 	Settings struct{} `json:"settings"`
 	Mappings struct {
 		Properties map[string]mappingProperty `json:"properties"`
 	} `json:"mappings"`
 }
 
-type elacticResponse struct {
+type elasticResponse struct {
 	Took int
 	Hits struct {
 		Total struct {
@@ -181,7 +181,7 @@ func (e *elastic) indexDocument(siteID string, doc *DocumentComment) error {
 
 func (e *elastic) buildQuery(req *Request) io.Reader {
 	var buf bytes.Buffer
-	query := elacticQuery{
+	query := elasticQuery{
 		Size: req.Limit,
 		From: req.From,
 	}
@@ -196,7 +196,7 @@ func (e *elastic) buildQuery(req *Request) io.Reader {
 
 func (e *elastic) buildCreateIndexSettings() io.Reader {
 	var buf bytes.Buffer
-	settings := elacticCreateIndexSettings{}
+	settings := elasticCreateIndexSettings{}
 	settings.Mappings.Properties = map[string]mappingProperty{}
 
 	settings.Mappings.Properties["text"] = mappingProperty{"text", e.analyzer}
@@ -235,7 +235,7 @@ func (e *elastic) Search(req *Request) (*ResultPage, error) {
 		return nil, err
 	}
 
-	var r elacticResponse
+	var r elasticResponse
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 		return nil, errors.Wrap(err, "error parsing the response body")
 	}
@@ -285,7 +285,7 @@ func (e *elastic) Init(ctx context.Context, eng engine.Interface) error {
 		}
 
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			log.Printf("[ERROR] error to close response body %v", err)
+			log.Printf("[ERROR] error to close response body %v", closeErr)
 		}
 
 		if err = checkElasticResponseErr(resp); err != nil {

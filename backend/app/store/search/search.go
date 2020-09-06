@@ -26,7 +26,7 @@ type indexer interface {
 const commentDocType = "docComment"
 const aheadLogFname = ".ahead.log"
 
-// DocumentComment is document describes comment stored in index
+// DocumentComment is document that describes comment stored in index
 // Bridge between store.Comment and Bleve index
 type DocumentComment struct {
 	ID        string    `json:"id"`

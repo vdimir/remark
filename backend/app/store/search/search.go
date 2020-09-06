@@ -12,11 +12,11 @@ type indexerBatch interface {
 }
 
 type searchEngine interface {
-	NewBatch() indexerBatch
-	Batch(batch indexerBatch) error
-	Search(req *Request) (*ResultPage, error)
-	Delete(id string) error
-	Close() error
+	NewBatch() indexerBatch                   // create new batch
+	Batch(batch indexerBatch) error           // index batch
+	Search(req *Request) (*ResultPage, error) // perform search request
+	Delete(id string) error                   // delete document from index
+	Close() error                             // close engine
 }
 
 type indexer interface {

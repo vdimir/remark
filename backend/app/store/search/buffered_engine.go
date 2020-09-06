@@ -104,14 +104,25 @@ func (s *bufferedEngine) indexDocumentWorker() {
 	}
 	log.Printf("[INFO] shutdown bleve indexer worker")
 
-	s.writeAheadLog()
+	s.dumpAheadLog()
 }
 
 func (s *bufferedEngine) getAheadLogPath() string {
 	return path.Join(s.indexPath, aheadLogFname)
 }
 
-func (s *bufferedEngine) writeAheadLog() {
+// dumpDoc writes document to file separeted with \0
+func dumpDoc(f *os.File, doc *DocumentComment) error {
+	data, err := json.Marshal(doc)
+	if err != nil {
+		return err
+	}
+	data = append(data, 0x0)
+	_, err = f.Write(data)
+	return err
+}
+
+func (s *bufferedEngine) dumpAheadLog() {
 	var err error
 
 	aheadLogPath := s.getAheadLogPath()
@@ -135,20 +146,18 @@ func (s *bufferedEngine) writeAheadLog() {
 	defer s.queueLock.Unlock()
 
 	notifiers := []*idxFlusher{}
+	// write all unprocessed documents into a file
 	for s.docQueue.Len() > 0 {
 		switch val := s.docQueue.PopFront().(type) {
 		case *DocumentComment:
 			if err != nil {
+				// we don't stop processing on error
+				// because we want to collect all waiters to send them an error
 				continue
 			}
-			var data []byte
-			data, err = json.Marshal(val)
-			if err != nil {
-				continue
-			}
-			data = append(data, 0x0)
-			_, err = f.Write(data)
+			err = dumpDoc(f, val)
 		case *idxFlusher:
+			// we will send error to all waiters, because indexer will not process this documents now
 			notifiers = append(notifiers, val)
 		default:
 			panic(fmt.Sprintf("unknown type %T", val))
@@ -163,7 +172,7 @@ func (s *bufferedEngine) writeAheadLog() {
 	}
 }
 
-// Init engine. It loads unindexed comments from ahead log saved from buffer on shutdown
+// Init engine. It loads dumped comments from ahead log saved from buffer on shutdown
 // Return true if engine initialized before, false means cold start
 func (s *bufferedEngine) Init(ctx context.Context) (bool, error) {
 	// TODO(@vdimir) add tests for this part
@@ -207,7 +216,7 @@ func (s *bufferedEngine) readAheadLog(ctx context.Context, reader *bufio.Reader)
 			return errors.Errorf("reading ahead log interrupted")
 		default:
 		}
-
+		// read documents separeted with \0
 		data, err := reader.ReadBytes(0x0)
 		if err != nil {
 			for err == io.EOF {

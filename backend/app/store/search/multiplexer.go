@@ -135,13 +135,9 @@ func indexSite(ctx context.Context, siteID string, e engine.Interface, s indexer
 }
 
 // Flush documents buffer for site
-// If `Flush` called before `Init` or after `Init` that ends with error it blocks forever
 func (s *multiplexer) Flush(siteID string) error {
-	for {
-		if s.Ready() {
-			break
-		}
-		<-time.After(10 * time.Second)
+	if !s.Ready() {
+		return errors.New("not initalized")
 	}
 	if inner, has := s.shards[siteID]; has {
 		return inner.Flush()

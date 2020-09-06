@@ -1,4 +1,4 @@
-package search
+package internal
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/engine"
+	service "github.com/umputun/remark42/backend/app/store/search/service"
 )
 
 // ErrSearchNotEnabled returned to search request in case search not enabled
@@ -14,7 +15,8 @@ var ErrSearchNotEnabled = errors.New("search not enabled")
 
 type noopSearchService struct{}
 
-func newNoopService() (Service, error) {
+// NewNoopService creates dummy search service
+func NewNoopService() (service.Service, error) {
 	return &noopSearchService{}, nil
 }
 
@@ -39,7 +41,7 @@ func (*noopSearchService) Flush(siteID string) error {
 }
 
 // Search always returns ErrSearchNotEnabled
-func (*noopSearchService) Search(req *Request) (*ResultPage, error) {
+func (*noopSearchService) Search(req *service.Request) (*service.ResultPage, error) {
 	return nil, ErrSearchNotEnabled
 }
 

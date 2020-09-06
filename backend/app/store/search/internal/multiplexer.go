@@ -1,4 +1,4 @@
-package search
+package internal
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/engine"
+	service "github.com/umputun/remark42/backend/app/store/search/service"
 )
 
 // multiplexer handles search requests siteID to particular engine
@@ -35,7 +36,7 @@ func (s *multiplexer) IndexDocument(comment *store.Comment) error {
 	if !has {
 		return errors.Errorf("no search index for site %q", comment.Locator.SiteID)
 	}
-	doc := DocFromComment(comment)
+	doc := service.DocFromComment(comment)
 	return searcher.IndexDocument(doc)
 }
 
@@ -88,7 +89,7 @@ func indexTopic(ctx context.Context, comments []store.Comment, e engine.Interfac
 		default:
 		}
 		comment := comment
-		doc := DocFromComment(&comment)
+		doc := service.DocFromComment(&comment)
 		err := s.IndexDocument(doc)
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -146,7 +147,7 @@ func (s *multiplexer) Flush(siteID string) error {
 }
 
 // Search document
-func (s *multiplexer) Search(req *Request) (*ResultPage, error) {
+func (s *multiplexer) Search(req *service.Request) (*service.ResultPage, error) {
 	searcher, has := s.shards[req.SiteID]
 	if !has {
 		return nil, errors.Errorf("no site %q in index", req.SiteID)

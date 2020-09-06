@@ -15,15 +15,16 @@ import (
 
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/engine"
+	service "github.com/umputun/remark42/backend/app/store/search/service"
 )
 
-func createTestService(t *testing.T, sites []string) (searcher Service, teardown func()) {
+func createTestService(t *testing.T, sites []string) (searcher service.Service, teardown func()) {
 	tmp := os.TempDir()
 	idxPath := tmp + "/search-remark42"
 
 	_ = os.RemoveAll(idxPath)
 
-	searcher, err := NewSearcher(SearcherParams{
+	searcher, err := NewSearcher(service.SearcherParams{
 		Type:      "bleve",
 		IndexPath: idxPath,
 		Analyzer:  "standard",
@@ -74,36 +75,36 @@ func TestSearch_SiteMux(t *testing.T) {
 	assert.NoError(t, searcher.Flush("test-site"))
 	assert.NoError(t, searcher.Flush("test-site2"))
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 3})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site", Query: "123", Limit: 3})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 1)
 		assert.Equal(t, "123456", res.Documents[0].ID)
 
 		require.Len(t, res.Documents[0].Matches, 1)
-		assert.Equal(t, res.Documents[0].Matches[0], TokenMatch{5, 8})
+		assert.Equal(t, res.Documents[0].Matches[0], service.TokenMatch{5, 8})
 
-		res, err = searcher.Search(&Request{SiteID: "test-site", Query: "345", Limit: 3})
+		res, err = searcher.Search(&service.Request{SiteID: "test-site", Query: "345", Limit: 3})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 0)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site2", Query: "345", SortBy: "-timestamp", Limit: 3})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site2", Query: "345", SortBy: "-timestamp", Limit: 3})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 2)
 		assert.Equal(t, "123457", res.Documents[0].ID)
 		require.Len(t, res.Documents[0].Matches, 1)
-		assert.Equal(t, res.Documents[0].Matches[0], TokenMatch{7, 10})
+		assert.Equal(t, res.Documents[0].Matches[0], service.TokenMatch{7, 10})
 
 		assert.Equal(t, "123456", res.Documents[1].ID)
 		require.Len(t, res.Documents[1].Matches, 1)
-		assert.Equal(t, res.Documents[1].Matches[0], TokenMatch{5, 8})
+		assert.Equal(t, res.Documents[1].Matches[0], service.TokenMatch{5, 8})
 
-		res, err = searcher.Search(&Request{SiteID: "test-site2", Query: "123", Limit: 3})
+		res, err = searcher.Search(&service.Request{SiteID: "test-site2", Query: "123", Limit: 3})
 		require.NoError(t, err)
 		assert.Len(t, res.Documents, 0)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site3", Query: "345", Limit: 3})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site3", Query: "345", Limit: 3})
 		require.NoError(t, err)
 		assert.Len(t, res.Documents, 0)
 	}
@@ -130,25 +131,25 @@ func TestSearch_Paginate(t *testing.T) {
 
 	assert.NoError(t, searcher.Flush("test-site"))
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, From: 0})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site", Query: "123", Limit: 1, From: 0})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 1)
 		assert.Equal(t, "comment0", res.Documents[0].ID)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, From: 1})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site", Query: "123", Limit: 1, From: 1})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 1)
 		assert.Equal(t, "comment1", res.Documents[0].ID)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, From: 3})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site", Query: "123", Limit: 1, From: 3})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 1)
 		assert.Equal(t, "comment3", res.Documents[0].ID)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 2, From: 1, SortBy: "-timestamp"})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site", Query: "123", Limit: 2, From: 1, SortBy: "-timestamp"})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 2)
 		assert.Equal(t, []string{"comment2", "comment1"}, []string{res.Documents[0].ID, res.Documents[1].ID})
@@ -211,7 +212,7 @@ func TestSearch_IndexStartup(t *testing.T) {
 	}
 
 	for _, siteID := range sites {
-		serp, err := searcher.Search(&Request{
+		serp, err := searcher.Search(&service.Request{
 			SiteID: siteID,
 			Query:  "text",
 			Limit:  19,
@@ -250,7 +251,7 @@ func TestSearch_Delete(t *testing.T) {
 	assert.NoError(t, searcher.Flush("test-site"))
 
 	{
-		res, searchErr := searcher.Search(&Request{SiteID: "test-site", Query: "text", SortBy: "+timestamp", Limit: 10})
+		res, searchErr := searcher.Search(&service.Request{SiteID: "test-site", Query: "text", SortBy: "+timestamp", Limit: 10})
 		require.NoError(t, searchErr)
 		require.Len(t, res.Documents, 2)
 		assert.Equal(t, "comment1", res.Documents[0].ID)
@@ -261,7 +262,7 @@ func TestSearch_Delete(t *testing.T) {
 	require.NoError(t, err)
 
 	{
-		res, searchErr := searcher.Search(&Request{SiteID: "test-site", Query: "text", SortBy: "+timestamp", Limit: 10})
+		res, searchErr := searcher.Search(&service.Request{SiteID: "test-site", Query: "text", SortBy: "+timestamp", Limit: 10})
 		require.NoError(t, searchErr)
 		require.Len(t, res.Documents, 1)
 		assert.Equal(t, "comment2", res.Documents[0].ID)
@@ -303,30 +304,30 @@ func TestSearch_OtherFields(t *testing.T) {
 
 	// username
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +username:\"user bar\"", Limit: 20})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site", Query: "text +username:\"user bar\"", Limit: 20})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 2)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +username:\"user foo\"", Limit: 20})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site", Query: "text +username:\"user foo\"", Limit: 20})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 1)
 	}
 	{
 		// order matters in username field, match only whole token
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +username:\"foo user\"", Limit: 20})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site", Query: "text +username:\"foo user\"", Limit: 20})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 0)
 	}
 
 	// time range
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +timestamp:>\"2017-12-20\"", Limit: 20})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site", Query: "text +timestamp:>\"2017-12-20\"", Limit: 20})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 2)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "text +timestamp:<\"2017-12-20\"", Limit: 20})
+		res, err := searcher.Search(&service.Request{SiteID: "test-site", Query: "text +timestamp:<\"2017-12-20\"", Limit: 20})
 		require.NoError(t, err)
 		require.Len(t, res.Documents, 1)
 	}

@@ -1,4 +1,4 @@
-package search
+package internal
 
 import (
 	"bytes"
@@ -19,6 +19,7 @@ import (
 
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/engine"
+	service "github.com/umputun/remark42/backend/app/store/search/service"
 )
 
 // elastic implements Service directly (not searchEngine)
@@ -63,10 +64,10 @@ type elasticResponse struct {
 			Value int
 		}
 		Hits []struct {
-			ID        string          `json:"_id"`
-			Source    DocumentComment `json:"_source"`
-			Sort      []interface{}   `json:"sort"`
-			Highlight json.RawMessage `json:"highlight"`
+			ID        string                  `json:"_id"`
+			Source    service.DocumentComment `json:"_source"`
+			Sort      []interface{}           `json:"sort"`
+			Highlight json.RawMessage         `json:"highlight"`
 		}
 	}
 }
@@ -76,7 +77,7 @@ type siteIndexer struct {
 	siteID string
 }
 
-func (idx *siteIndexer) IndexDocument(doc *DocumentComment) error {
+func (idx *siteIndexer) IndexDocument(doc *service.DocumentComment) error {
 	return idx.parent.indexDocument(idx.siteID, doc)
 }
 
@@ -97,7 +98,8 @@ func parseSecret(secret string, cfg *elasticsearch.Config) error {
 	return errors.Errorf("secret should starts with one of prefixes: %v", allowed)
 }
 
-func newElasticService(params SearcherParams) (Service, error) {
+// NewElasticService creates search service based on ElasticSearch
+func NewElasticService(params service.SearcherParams) (service.Service, error) {
 
 	if params.Endpoint == "" || params.Secret == "" {
 		return nil, errors.Errorf("elasticsearch parameters are not set")
@@ -140,13 +142,13 @@ func newElasticService(params SearcherParams) (Service, error) {
 
 // IndexDocument adds comment to elastic index
 func (e *elastic) IndexDocument(comment *store.Comment) error {
-	doc := DocFromComment(comment)
+	doc := service.DocFromComment(comment)
 	siteID := comment.Locator.SiteID
 
 	return e.indexDocument(siteID, doc)
 }
 
-func (e *elastic) indexDocument(siteID string, doc *DocumentComment) error {
+func (e *elastic) indexDocument(siteID string, doc *service.DocumentComment) error {
 
 	data, err := json.Marshal(doc)
 	if err != nil {
@@ -180,7 +182,7 @@ func (e *elastic) indexDocument(siteID string, doc *DocumentComment) error {
 	return nil
 }
 
-func (e *elastic) buildQuery(req *Request) io.Reader {
+func (e *elastic) buildQuery(req *service.Request) io.Reader {
 	var buf bytes.Buffer
 	query := elasticQuery{
 		Size: req.Limit,
@@ -223,7 +225,7 @@ func checkElasticResponseErr(resp *esapi.Response) error {
 }
 
 // Search performs search request using elastic
-func (e *elastic) Search(req *Request) (*ResultPage, error) {
+func (e *elastic) Search(req *service.Request) (*service.ResultPage, error) {
 	resp, err := e.client.Search(
 		e.client.Search.WithIndex(req.SiteID),
 		e.client.Search.WithBody(e.buildQuery(req)),
@@ -241,12 +243,12 @@ func (e *elastic) Search(req *Request) (*ResultPage, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 		return nil, errors.Wrap(err, "error parsing the response body")
 	}
-	serp := &ResultPage{
+	serp := &service.ResultPage{
 		Total:     uint64(r.Hits.Total.Value),
-		Documents: make([]ResultDoc, 0, len(r.Hits.Hits)),
+		Documents: make([]service.ResultDoc, 0, len(r.Hits.Hits)),
 	}
 	for _, v := range r.Hits.Hits {
-		serp.Documents = append(serp.Documents, ResultDoc{
+		serp.Documents = append(serp.Documents, service.ResultDoc{
 			PostURL: v.Source.URL,
 			ID:      v.Source.ID,
 		})

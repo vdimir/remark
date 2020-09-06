@@ -5,16 +5,17 @@ import (
 
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/engine"
+	service "github.com/umputun/remark42/backend/app/store/search/service"
 )
 
 // StoreEngineDecorator proxies requests to store/engine.Interface and index incoming data
 type StoreEngineDecorator struct {
 	engine.Interface
-	searcher Service
+	searcher service.Service
 }
 
 // WrapEngine decorates engine with StoreEngineDecorator
-func WrapEngine(e engine.Interface, s Service) engine.Interface {
+func WrapEngine(e engine.Interface, s service.Service) engine.Interface {
 	return &StoreEngineDecorator{
 		Interface: e,
 		searcher:  s,

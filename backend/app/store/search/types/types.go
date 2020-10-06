@@ -1,24 +1,17 @@
-package search
+// This package is aimed to provide common types
+// for `search/internal` and main `search` module
+// to avoid circular module dependencies
+package types
 
 import (
-	"context"
+	"errors"
 	"time"
 
 	"github.com/umputun/remark42/backend/app/store"
-	"github.com/umputun/remark42/backend/app/store/engine"
 )
 
-// Service provides search for engine
-type Service interface {
-	IndexDocument(comment *store.Comment) error
-	Init(ctx context.Context, e engine.Interface) error
-	Ready() bool
-	Flush(siteID string) error
-	Search(req *Request) (*ResultPage, error)
-	Delete(siteID, commentID string) error
-	Help() string
-	Close() error
-}
+// ErrSearchNotEnabled returned to search request in case search not enabled
+var ErrSearchNotEnabled = errors.New("search not enabled")
 
 // Request is the input for Search
 type Request struct {

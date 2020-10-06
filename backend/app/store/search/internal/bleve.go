@@ -22,7 +22,7 @@ import (
 	"github.com/blevesearch/bleve/mapping"
 	"github.com/pkg/errors"
 
-	service "github.com/umputun/remark42/backend/app/store/search/service"
+	types "github.com/umputun/remark42/backend/app/store/search/types"
 )
 
 const urlFieldName = "url"
@@ -46,7 +46,7 @@ type bleveIndexer struct {
 }
 
 // Index adds document to current batch
-func (b bleveBatch) Index(id string, data *service.DocumentComment) error {
+func (b bleveBatch) Index(id string, data *types.DocumentComment) error {
 	return b.Batch.Index(id, data)
 }
 
@@ -99,8 +99,8 @@ func newBleve(indexPath, analyzer string) (s *bufferedEngine, err error) {
 	return eng, nil
 }
 
-// NewBleveService create search sservice based on bleve engine
-func NewBleveService(params service.SearcherParams) (s service.Service, err error) {
+// NewBleveService create search service based on bleve engine
+func NewBleveService(params types.SearcherParams) (s *multiplexer, err error) {
 	encodeSiteID := func(siteID string) string {
 		h := fnv.New32().Sum([]byte(siteID))
 		return hex.EncodeToString(h)
@@ -131,10 +131,10 @@ func (idx bleveIndexer) Batch(batch indexerBatch) error {
 
 // convertBleveSerp converts search result
 // from bleve internal representation to ResultPage that would passed to user from this module
-func convertBleveSerp(bleveResult *bleve.SearchResult) *service.ResultPage {
-	result := service.ResultPage{
+func convertBleveSerp(bleveResult *bleve.SearchResult) *types.ResultPage {
+	result := types.ResultPage{
 		Total:     bleveResult.Total,
-		Documents: make([]service.ResultDoc, 0, len(bleveResult.Hits)),
+		Documents: make([]types.ResultDoc, 0, len(bleveResult.Hits)),
 	}
 	for _, r := range bleveResult.Hits {
 		url, hasURL := r.Fields[urlFieldName].(string)
@@ -142,16 +142,16 @@ func convertBleveSerp(bleveResult *bleve.SearchResult) *service.ResultPage {
 			log.Fatalf("cannot find %q in %v", urlFieldName, r.Fields)
 		}
 
-		d := service.ResultDoc{
+		d := types.ResultDoc{
 			ID:      r.ID,
-			Matches: []service.TokenMatch{},
+			Matches: []types.TokenMatch{},
 			PostURL: url,
 		}
 
 		if highlight, has := r.Locations[textFieldName]; has {
 			for _, locs := range highlight {
 				for _, loc := range locs {
-					d.Matches = append(d.Matches, service.TokenMatch{
+					d.Matches = append(d.Matches, types.TokenMatch{
 						Start: loc.Start,
 						End:   loc.End,
 					})
@@ -182,7 +182,7 @@ func commentDocumentMapping(textAnalyzer string) *mapping.DocumentMapping {
 }
 
 // Search performs search request
-func (idx bleveIndexer) Search(req *service.Request) (*service.ResultPage, error) {
+func (idx bleveIndexer) Search(req *types.Request) (*types.ResultPage, error) {
 	bQuery := bleve.NewQueryStringQuery(req.Query)
 	bReq := bleve.NewSearchRequestOptions(bQuery, req.Limit, req.From, false)
 
@@ -229,7 +229,7 @@ func createIndexMapping(textAnalyzer string) mapping.IndexMapping {
 	if err != nil {
 		panic(fmt.Sprintf("error adding bleve analyzer %v", err))
 	}
-	indexMapping.AddDocumentMapping(service.DocumentComment{}.Type(), commentDocumentMapping(textAnalyzer))
+	indexMapping.AddDocumentMapping(types.DocumentComment{}.Type(), commentDocumentMapping(textAnalyzer))
 
 	return indexMapping
 }

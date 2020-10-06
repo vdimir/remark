@@ -20,6 +20,7 @@ import (
 	"github.com/umputun/remark42/backend/app/store/engine"
 	"github.com/umputun/remark42/backend/app/store/image"
 	"github.com/umputun/remark42/backend/app/store/search"
+	"github.com/umputun/remark42/backend/app/store/search/types"
 )
 
 // DataStore wraps store.Interface with additional methods
@@ -877,7 +878,7 @@ func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) (*Sear
 		return nil, ErrSearchNotReady
 	}
 
-	req := &search.Request{
+	req := &types.Request{
 		SiteID: siteID,
 		Query:  query,
 		SortBy: sortBy,

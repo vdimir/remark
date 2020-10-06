@@ -16,7 +16,7 @@ import (
 	log "github.com/go-pkgz/lgr"
 	"github.com/pkg/errors"
 
-	service "github.com/umputun/remark42/backend/app/store/search/service"
+	types "github.com/umputun/remark42/backend/app/store/search/types"
 )
 
 const aheadLogFname = ".ahead.log"
@@ -39,7 +39,7 @@ type bufferedEngine struct {
 }
 
 // IndexDocument adds or updates document to search index
-func (s *bufferedEngine) IndexDocument(doc *service.DocumentComment) error {
+func (s *bufferedEngine) IndexDocument(doc *types.DocumentComment) error {
 	s.queueLock.Lock()
 	s.docQueue.PushBack(doc)
 	s.queueLock.Unlock()
@@ -60,7 +60,7 @@ func (s *bufferedEngine) indexBatch() {
 	batch := s.index.NewBatch()
 	for i := 0; i < docCount; i++ {
 		switch val := s.docQueue.PopFront().(type) {
-		case *service.DocumentComment:
+		case *types.DocumentComment:
 			err := batch.Index(val.ID, val)
 			if err != nil {
 				log.Printf("[ERROR] error while adding doc %q to batch %v", val.ID, err)
@@ -119,7 +119,7 @@ func (s *bufferedEngine) getAheadLogPath() string {
 }
 
 // dumpDoc writes document to file separeted with \0
-func dumpDoc(f *os.File, doc *service.DocumentComment) error {
+func dumpDoc(f *os.File, doc *types.DocumentComment) error {
 	data, err := json.Marshal(doc)
 	if err != nil {
 		return err
@@ -156,7 +156,7 @@ func (s *bufferedEngine) dumpAheadLog() {
 	// write all unprocessed documents into a file
 	for s.docQueue.Len() > 0 {
 		switch val := s.docQueue.PopFront().(type) {
-		case *service.DocumentComment:
+		case *types.DocumentComment:
 			if err != nil {
 				// we don't stop processing on error
 				// because we want to collect all waiters to send them an error
@@ -232,7 +232,7 @@ func (s *bufferedEngine) readAheadLog(ctx context.Context, reader *bufio.Reader)
 			return err
 		}
 		data = data[:len(data)-1]
-		var doc *service.DocumentComment
+		var doc *types.DocumentComment
 		if err = json.Unmarshal(data, doc); err == nil {
 			err = s.IndexDocument(doc)
 			if err != nil {
@@ -258,7 +258,7 @@ func (s *bufferedEngine) Flush() error {
 }
 
 // Search documents
-func (s *bufferedEngine) Search(req *service.Request) (*service.ResultPage, error) {
+func (s *bufferedEngine) Search(req *types.Request) (*types.ResultPage, error) {
 	log.Printf("[INFO] searching %v", req)
 	return s.index.Search(req)
 }

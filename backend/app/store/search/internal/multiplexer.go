@@ -14,15 +14,15 @@ import (
 	types "github.com/umputun/remark42/backend/app/store/search/types"
 )
 
-// multiplexer handles search requests siteID to particular engine
-type multiplexer struct {
+// Multiplexer handles search requests siteID to particular engine
+type Multiplexer struct {
 	shards     map[string]*bufferedEngine
 	engineType string
 	ready      atomic.Value
 }
 
-func newMultiplexer(shards map[string]*bufferedEngine, engineType string) *multiplexer {
-	m := &multiplexer{
+func newMultiplexer(shards map[string]*bufferedEngine, engineType string) *Multiplexer {
+	m := &Multiplexer{
 		shards:     shards,
 		engineType: engineType,
 	}
@@ -31,7 +31,7 @@ func newMultiplexer(shards map[string]*bufferedEngine, engineType string) *multi
 }
 
 // IndexDocument adds comment to index
-func (s *multiplexer) IndexDocument(comment *store.Comment) error {
+func (s *Multiplexer) IndexDocument(comment *store.Comment) error {
 	searcher, has := s.shards[comment.Locator.SiteID]
 	if !has {
 		return errors.Errorf("no search index for site %q", comment.Locator.SiteID)
@@ -43,7 +43,7 @@ func (s *multiplexer) IndexDocument(comment *store.Comment) error {
 const maxErrsDuringStartup = 20
 
 // Init creates missing indexes and index existing documents
-func (s *multiplexer) Init(ctx context.Context, e engine.Interface) error {
+func (s *Multiplexer) Init(ctx context.Context, e engine.Interface) error {
 	/* TODO(@vdimir)
 	 * This implementation could leave index inconsistent with storage in some rare cases.
 	 * Consider this situation:
@@ -74,11 +74,12 @@ func (s *multiplexer) Init(ctx context.Context, e engine.Interface) error {
 	return err
 }
 
-func (s *multiplexer) Ready() bool {
+// Ready ensures that seracher is initialized
+func (s *Multiplexer) Ready() bool {
 	return s.ready.Load().(bool)
 }
 
-func indexTopic(ctx context.Context, comments []store.Comment, e engine.Interface, s indexer) (int, *multierror.Error) {
+func indexTopic(ctx context.Context, comments []store.Comment, s indexer) (int, *multierror.Error) {
 	errs := new(multierror.Error)
 
 	indexedCnt := 0
@@ -116,16 +117,19 @@ func indexSite(ctx context.Context, siteID string, e engine.Interface, s indexer
 	for i := len(topics) - 1; i >= 0; i-- {
 		locator := store.Locator{SiteID: siteID, URL: topics[i].URL}
 		req := engine.FindRequest{Locator: locator, Since: time.Time{}}
-		comments, err := e.Find(req)
-		if err != nil {
-			errs = multierror.Append(errs, err)
+		comments, findErr := e.Find(req)
+		if findErr != nil {
+			errs = multierror.Append(errs, findErr)
 			continue
 		}
-		cnt, topicErrs := indexTopic(ctx, comments, e, s)
+		cnt, topicErrs := indexTopic(ctx, comments, s)
 		indexedCnt += cnt
 
-		if errs = multierror.Append(errs, topicErrs.Errors...); errs.Len() >= maxErrsDuringStartup {
-			break
+		if topicErrs != nil {
+			errs = multierror.Append(errs, topicErrs.Errors...)
+			if errs.Len() >= maxErrsDuringStartup {
+				break
+			}
 		}
 	}
 	err = errs.ErrorOrNil()
@@ -136,9 +140,9 @@ func indexSite(ctx context.Context, siteID string, e engine.Interface, s indexer
 }
 
 // Flush documents buffer for site
-func (s *multiplexer) Flush(siteID string) error {
+func (s *Multiplexer) Flush(siteID string) error {
 	if !s.Ready() {
-		return errors.New("not initalized")
+		return errors.New("not initialized")
 	}
 	if inner, has := s.shards[siteID]; has {
 		return inner.Flush()
@@ -147,7 +151,7 @@ func (s *multiplexer) Flush(siteID string) error {
 }
 
 // Search document
-func (s *multiplexer) Search(req *types.Request) (*types.ResultPage, error) {
+func (s *Multiplexer) Search(req *types.Request) (*types.ResultPage, error) {
 	searcher, has := s.shards[req.SiteID]
 	if !has {
 		return nil, errors.Errorf("no site %q in index", req.SiteID)
@@ -156,15 +160,15 @@ func (s *multiplexer) Search(req *types.Request) (*types.ResultPage, error) {
 }
 
 // Delete document from index
-func (s *multiplexer) Delete(siteID, commentID string) error {
+func (s *Multiplexer) Delete(siteID, commentID string) error {
 	if inner, has := s.shards[siteID]; has {
 		return inner.Delete(commentID)
 	}
 	return nil
 }
 
-// Type return engine type
-func (s *multiplexer) Help() string {
+// Help returns help string
+func (s *Multiplexer) Help() string {
 	switch s.engineType {
 	case "bleve":
 		return "See" + " " +
@@ -176,7 +180,7 @@ func (s *multiplexer) Help() string {
 }
 
 // Close releases resources
-func (s *multiplexer) Close() error {
+func (s *Multiplexer) Close() error {
 	log.Print("[INFO] closing search service...")
 	errs := new(multierror.Error)
 

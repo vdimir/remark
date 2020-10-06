@@ -22,10 +22,10 @@ import (
 	types "github.com/umputun/remark42/backend/app/store/search/types"
 )
 
-// elastic implements Service directly (not searchEngine)
+// Elastic implements Service directly (not searchEngine)
 // because it has own mechanisms for batching
 // and do not require additional maintenance
-type elastic struct {
+type Elastic struct {
 	client       *elasticsearch.Client
 	bulkIndexers map[string]esutil.BulkIndexer
 	ctx          context.Context
@@ -73,7 +73,7 @@ type elasticResponse struct {
 }
 
 type siteIndexer struct {
-	parent *elastic
+	parent *Elastic
 	siteID string
 }
 
@@ -99,7 +99,7 @@ func parseSecret(secret string, cfg *elasticsearch.Config) error {
 }
 
 // NewElasticService creates search service based on ElasticSearch
-func NewElasticService(params types.SearcherParams) (*elastic, error) {
+func NewElasticService(params types.SearcherParams) (*Elastic, error) {
 
 	if params.Endpoint == "" || params.Secret == "" {
 		return nil, errors.Errorf("elasticsearch parameters are not set")
@@ -130,7 +130,7 @@ func NewElasticService(params types.SearcherParams) (*elastic, error) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	return &elastic{
+	return &Elastic{
 		client:       client,
 		bulkIndexers: bulkIndexers,
 		ctx:          ctx,
@@ -141,14 +141,14 @@ func NewElasticService(params types.SearcherParams) (*elastic, error) {
 }
 
 // IndexDocument adds comment to elastic index
-func (e *elastic) IndexDocument(comment *store.Comment) error {
+func (e *Elastic) IndexDocument(comment *store.Comment) error {
 	doc := types.DocFromComment(comment)
 	siteID := comment.Locator.SiteID
 
 	return e.indexDocument(siteID, doc)
 }
 
-func (e *elastic) indexDocument(siteID string, doc *types.DocumentComment) error {
+func (e *Elastic) indexDocument(siteID string, doc *types.DocumentComment) error {
 
 	data, err := json.Marshal(doc)
 	if err != nil {
@@ -182,7 +182,7 @@ func (e *elastic) indexDocument(siteID string, doc *types.DocumentComment) error
 	return nil
 }
 
-func (e *elastic) buildQuery(req *types.Request) io.Reader {
+func (e *Elastic) buildQuery(req *types.Request) io.Reader {
 	var buf bytes.Buffer
 	query := elasticQuery{
 		Size: req.Limit,
@@ -197,7 +197,7 @@ func (e *elastic) buildQuery(req *types.Request) io.Reader {
 	return &buf
 }
 
-func (e *elastic) buildCreateIndexSettings() io.Reader {
+func (e *Elastic) buildCreateIndexSettings() io.Reader {
 	var buf bytes.Buffer
 	settings := elasticCreateIndexSettings{}
 	settings.Mappings.Properties = map[string]mappingProperty{}
@@ -225,7 +225,7 @@ func checkElasticResponseErr(resp *esapi.Response) error {
 }
 
 // Search performs search request using elastic
-func (e *elastic) Search(req *types.Request) (*types.ResultPage, error) {
+func (e *Elastic) Search(req *types.Request) (*types.ResultPage, error) {
 	resp, err := e.client.Search(
 		e.client.Search.WithIndex(req.SiteID),
 		e.client.Search.WithBody(e.buildQuery(req)),
@@ -256,7 +256,7 @@ func (e *elastic) Search(req *types.Request) (*types.ResultPage, error) {
 	return serp, nil
 }
 
-func (e *elastic) initSite(ctx context.Context, siteID string, eng engine.Interface) error {
+func (e *Elastic) initSite(ctx context.Context, siteID string, eng engine.Interface) error {
 	resp, err := e.client.Indices.Exists([]string{siteID})
 	if err != nil {
 		return errors.Wrapf(err, "error getting index status")
@@ -298,7 +298,7 @@ func (e *elastic) initSite(ctx context.Context, siteID string, eng engine.Interf
 }
 
 // Init elastic engine
-func (e *elastic) Init(ctx context.Context, eng engine.Interface) error {
+func (e *Elastic) Init(ctx context.Context, eng engine.Interface) error {
 	errs := new(multierror.Error)
 
 	for siteID := range e.bulkIndexers {
@@ -315,7 +315,7 @@ func (e *elastic) Init(ctx context.Context, eng engine.Interface) error {
 }
 
 // Delete comment from index
-func (e *elastic) Delete(siteID, commentID string) error {
+func (e *Elastic) Delete(siteID, commentID string) error {
 	if bi, has := e.bulkIndexers[siteID]; has {
 		item := esutil.BulkIndexerItem{
 			Action:     "delete",
@@ -334,13 +334,13 @@ func (e *elastic) Delete(siteID, commentID string) error {
 }
 
 // Flush all unprocessed documents
-func (e *elastic) Flush(siteID string) error {
+func (e *Elastic) Flush(siteID string) error {
 	// TODO(@vdimir)
 	return nil
 }
 
 // Close engine
-func (e *elastic) Close() error {
+func (e *Elastic) Close() error {
 	e.cancel()
 
 	errs := new(multierror.Error)
@@ -354,11 +354,11 @@ func (e *elastic) Close() error {
 }
 
 // Ready returns true if engine ready to go
-func (e *elastic) Ready() bool {
+func (e *Elastic) Ready() bool {
 	return e.ready
 }
 
 // Help returns help message for user
-func (e *elastic) Help() string {
+func (e *Elastic) Help() string {
 	return ""
 }

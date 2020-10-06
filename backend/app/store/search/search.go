@@ -22,8 +22,11 @@ type Service interface {
 	Close() error
 }
 
+// SearcherParams is an alias for types.SearcherParams
 type SearcherParams = types.SearcherParams
 
+// ErrSearchNotEnabled occurs when search is not enabled on startup,
+// but some method is called
 var ErrSearchNotEnabled = types.ErrSearchNotEnabled
 
 // NewSearcher creates new searcher with specified type and parameters

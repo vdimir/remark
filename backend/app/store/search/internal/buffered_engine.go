@@ -118,7 +118,7 @@ func (s *bufferedEngine) getAheadLogPath() string {
 	return path.Join(s.indexPath, aheadLogFname)
 }
 
-// dumpDoc writes document to file separeted with \0
+// dumpDoc writes a document to file separated with \0
 func dumpDoc(f *os.File, doc *types.DocumentComment) error {
 	data, err := json.Marshal(doc)
 	if err != nil {
@@ -223,7 +223,7 @@ func (s *bufferedEngine) readAheadLog(ctx context.Context, reader *bufio.Reader)
 			return errors.Errorf("reading ahead log interrupted")
 		default:
 		}
-		// read documents separeted with \0
+		// read documents separated with \0
 		data, err := reader.ReadBytes(0x0)
 		if err != nil {
 			for err == io.EOF {

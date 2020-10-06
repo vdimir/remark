@@ -8,49 +8,50 @@ import (
 	types "github.com/umputun/remark42/backend/app/store/search/types"
 )
 
-type noopSearchService struct{}
+// NoopSearchService is a dummy searcher
+type NoopSearchService struct{}
 
 // NewNoopService creates dummy search service
-func NewNoopService() (*noopSearchService, error) {
-	return &noopSearchService{}, nil
+func NewNoopService() (*NoopSearchService, error) {
+	return &NoopSearchService{}, nil
 }
 
 // IndexDocument does nothing on noop search service
-func (*noopSearchService) IndexDocument(comment *store.Comment) error {
+func (*NoopSearchService) IndexDocument(comment *store.Comment) error {
 	return nil
 }
 
 // Init does nothing on noop search service
-func (*noopSearchService) Init(ctx context.Context, e engine.Interface) error {
+func (*NoopSearchService) Init(ctx context.Context, e engine.Interface) error {
 	return nil
 }
 
 // Ready for noop search service always true
-func (*noopSearchService) Ready() bool {
+func (*NoopSearchService) Ready() bool {
 	return true
 }
 
 // Flush does nothing on noop search service
-func (*noopSearchService) Flush(siteID string) error {
+func (*NoopSearchService) Flush(siteID string) error {
 	return nil
 }
 
 // Search always returns ErrSearchNotEnabled
-func (*noopSearchService) Search(req *types.Request) (*types.ResultPage, error) {
+func (*NoopSearchService) Search(req *types.Request) (*types.ResultPage, error) {
 	return nil, types.ErrSearchNotEnabled
 }
 
 // Delete does nothing on noop search service
-func (*noopSearchService) Delete(siteID, commentID string) error {
+func (*NoopSearchService) Delete(siteID, commentID string) error {
 	return nil
 }
 
 // Help for noop search service
-func (*noopSearchService) Help() string {
+func (*NoopSearchService) Help() string {
 	return "search not enabled"
 }
 
 // Close does nothing on noop search service
-func (*noopSearchService) Close() error {
+func (*NoopSearchService) Close() error {
 	return nil
 }

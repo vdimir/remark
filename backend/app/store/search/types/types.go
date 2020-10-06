@@ -1,4 +1,4 @@
-// This package is aimed to provide common types
+// Package types is aimed to provide common types
 // for `search/internal` and main `search` module
 // to avoid circular module dependencies
 package types

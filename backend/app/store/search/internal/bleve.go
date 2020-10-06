@@ -100,7 +100,7 @@ func newBleve(indexPath, analyzer string) (s *bufferedEngine, err error) {
 }
 
 // NewBleveService create search service based on bleve engine
-func NewBleveService(params types.SearcherParams) (s *multiplexer, err error) {
+func NewBleveService(params types.SearcherParams) (s *Multiplexer, err error) {
 	encodeSiteID := func(siteID string) string {
 		h := fnv.New32().Sum([]byte(siteID))
 		return hex.EncodeToString(h)

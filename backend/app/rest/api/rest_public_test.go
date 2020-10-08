@@ -965,7 +965,7 @@ func TestRest_Search(t *testing.T) {
 
 	{
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=bar")
-		require.Equal(t, 200, code)
+		require.Equal(t, 200, code, res)
 
 		err = json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
@@ -1016,6 +1016,60 @@ func TestRest_Search(t *testing.T) {
 		assert.NoError(t, err)
 		require.Equal(t, 2, len(serp.Comments), "should have 2 comments")
 		assert.Equal(t, []string{id1, id2}, []string{serp.Comments[0].ID, serp.Comments[1].ID})
+	}
+
+	{
+		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=timestamp&skip=1")
+		require.Equal(t, 200, code)
+
+		err = json.Unmarshal([]byte(res), &serp)
+		assert.NoError(t, err)
+		require.Equal(t, 1, len(serp.Comments), "should have 1 comment")
+		assert.Equal(t, id2, serp.Comments[0].ID)
+	}
+
+	for _, limit := range []int{-1, 0, 999999} {
+		reqURL := fmt.Sprintf("%s/api/v1/search?site=remark42&query=bar&limit=%d", ts.URL, limit)
+		res, code := get(t, reqURL)
+		require.Equal(t, 400, code, res)
+	}
+
+	// Wait to not reach RPS limit
+	time.Sleep(time.Second)
+
+	for _, skip := range []int{-1, 999999} {
+		reqURL := fmt.Sprintf("%s/api/v1/search?site=remark42&query=bar&skip=%d", ts.URL, skip)
+		res, code := get(t, reqURL)
+		require.Equal(t, 400, code, res)
+	}
+
+	{
+		res, code := get(t, ts.URL+"/api/v1/search-help")
+		require.Equal(t, 200, code, res)
+
+		helpResp := map[string]string{}
+		err = json.Unmarshal([]byte(res), &helpResp)
+		assert.NoError(t, err)
+
+		_, hasText := helpResp["text"]
+		assert.True(t, hasText)
+	}
+}
+
+func TestRest_NoSearch(t *testing.T) {
+	ts, srv, teardown := startupT(t)
+	defer teardown()
+
+	var err error
+	srv.DataService.SearchService, err = search.NewSearcher(search.SearcherParams{})
+	assert.NoError(t, err)
+	{
+		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=timestamp")
+		require.Equal(t, 400, code, res)
+	}
+	{
+		res, code := get(t, ts.URL+"/api/v1/search-help")
+		require.Equal(t, 400, code, res)
 	}
 }
 

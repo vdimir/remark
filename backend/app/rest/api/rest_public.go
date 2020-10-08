@@ -453,26 +453,36 @@ func (s *public) loadPictureCtrl(w http.ResponseWriter, r *http.Request) {
 
 // GET /search?site=siteID&query=queryText&limit=20&skip=10 - search documents
 func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
-	maxSearchLimit := 100
+
 	siteID := r.URL.Query().Get("site")
 	query := r.URL.Query().Get("query")
 	sortBy := r.URL.Query().Get("sort")
 
 	limit, skip := 20, 0
 
-	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil {
-		limit = v
-	}
-	if v, err := strconv.Atoi(r.URL.Query().Get("skip")); err == nil {
-		skip = v
-	}
-
-	if limit < 1 || maxSearchLimit < limit {
+	validateParam := func(value, from, to int, name string) bool {
+		if from <= value && value <= to {
+			return true
+		}
 		rest.SendErrorJSON(w, r,
 			http.StatusBadRequest,
 			errors.Errorf("wrong param"),
-			fmt.Sprintf("wrong limit value. expected to be from 1 to %d", maxSearchLimit),
+			fmt.Sprintf("wrong %s value. expected to be from %d to %d", name, from, to),
 			rest.ErrActionRejected)
+		return false
+	}
+
+	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil {
+		limit = v
+	}
+	if !validateParam(limit, 1, 100, "limit") {
+		return
+	}
+
+	if v, err := strconv.Atoi(r.URL.Query().Get("skip")); err == nil {
+		skip = v
+	}
+	if !validateParam(skip, 0, 100, "skip") {
 		return
 	}
 

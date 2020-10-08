@@ -44,13 +44,6 @@ const maxErrsDuringStartup = 20
 
 // Init creates missing indexes and index existing documents
 func (s *Multiplexer) Init(ctx context.Context, e engine.Interface) error {
-	/* TODO(@vdimir)
-	 * This implementation could leave index inconsistent with storage in some rare cases.
-	 * Consider this situation:
-	 * Some comment retrieved from storage during coldstart and had changed,
-	 * but changed version indexed before initial that is stored in DB.
-	 * So initial version would rewrite changes.
-	 */
 	if e == nil {
 		s.ready.Store(true)
 		return nil

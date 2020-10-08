@@ -48,7 +48,7 @@ func (*NoopSearchService) Delete(siteID, commentID string) error {
 
 // Help for noop search service
 func (*NoopSearchService) Help() string {
-	return "search not enabled"
+	return ""
 }
 
 // Close does nothing on noop search service

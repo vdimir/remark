@@ -40,11 +40,15 @@ type bufferedEngine struct {
 
 // IndexDocument adds or updates document to search index
 func (s *bufferedEngine) IndexDocument(doc *types.DocumentComment) error {
+	s.addDocToQueue(doc)
+	s.queueNotifier <- false
+	return nil
+}
+
+func (s *bufferedEngine) addDocToQueue(doc *types.DocumentComment) {
 	s.queueLock.Lock()
 	s.docQueue.PushBack(doc)
 	s.queueLock.Unlock()
-	s.queueNotifier <- false
-	return nil
 }
 
 func (s *bufferedEngine) indexBatch() {
@@ -83,6 +87,13 @@ func (s *bufferedEngine) indexBatch() {
 	for _, notifier := range notifiers {
 		notifier.notifier <- err
 	}
+}
+
+// Start worker in background goroutine
+func (s *bufferedEngine) Start() {
+	s.shutdownWait.Add(1)
+	// exit when queueNotifier is closed and decrements shutdownWait counter
+	go s.indexDocumentWorker()
 }
 
 // indexDocumentWorker processes documents from current batch in a loop
@@ -182,8 +193,6 @@ func (s *bufferedEngine) dumpAheadLog() {
 // Init engine. It loads dumped comments from ahead log saved from buffer on shutdown
 // Return true if engine initialized before, false means cold start
 func (s *bufferedEngine) Init(ctx context.Context) (bool, error) {
-	// TODO(@vdimir) add tests for this part
-
 	aheadLogPath := s.getAheadLogPath()
 	f, err := os.Open(filepath.Clean(aheadLogPath))
 
@@ -192,8 +201,10 @@ func (s *bufferedEngine) Init(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 	if err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "can't open log file")
 	}
+
+	log.Printf("[INFO] reading log file %q", aheadLogPath)
 
 	defer func() {
 		err = f.Close()
@@ -204,16 +215,16 @@ func (s *bufferedEngine) Init(ctx context.Context) (bool, error) {
 
 	reader := bufio.NewReader(f)
 	err = s.readAheadLog(ctx, reader)
-	if err == nil {
-		defer func() {
-			err = os.Remove(aheadLogPath)
-			if err != nil {
-				log.Printf("[ERROR] error %v deleting log file %q", err, aheadLogPath)
-			}
-		}()
+	if err != nil {
+		return true, errors.Wrapf(err, "can't read ahead log")
 	}
 
-	return true, err
+	err = os.Remove(aheadLogPath)
+	if err != nil {
+		log.Printf("[ERROR] error %v deleting log file %q", err, aheadLogPath)
+	}
+
+	return true, nil
 }
 
 func (s *bufferedEngine) readAheadLog(ctx context.Context, reader *bufio.Reader) error {
@@ -233,14 +244,12 @@ func (s *bufferedEngine) readAheadLog(ctx context.Context, reader *bufio.Reader)
 		}
 		data = data[:len(data)-1]
 		var doc *types.DocumentComment
-		if err = json.Unmarshal(data, doc); err == nil {
-			err = s.IndexDocument(doc)
-			if err != nil {
-				return err
-			}
+		if err = json.Unmarshal(data, &doc); err == nil {
+			s.addDocToQueue(doc)
 		} else {
-			return err
+			return errors.Wrapf(err, "unmarshal error")
 		}
+
 	}
 }
 

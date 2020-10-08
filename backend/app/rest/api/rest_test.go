@@ -337,7 +337,6 @@ func TestRest_cacheControl(t *testing.T) {
 func randomPath(tempDir, basename, suffix string) (string, error) {
 	for i := 0; i < 10; i++ {
 		fname := fmt.Sprintf("/%s/%s-%d%s", tempDir, basename, rand.Int31(), suffix)
-		fmt.Printf("fname %q", fname)
 		_, err := os.Stat(fname)
 		if err != nil {
 			return fname, nil

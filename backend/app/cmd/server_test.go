@@ -649,31 +649,43 @@ func TestServerApp_SearchColdstart(t *testing.T) {
 		IndexPath: indexPath,
 		Analyzer:  "standard",
 	}
-	app, ctx, cancel = createAppFromCmd(t, *cmd)
 
+	testSearch := func() {
+		st := time.Now()
+		for time.Since(st) <= time.Minute {
+			code, _ = get("search?site=remark&query=test")
+			if code == http.StatusBadRequest {
+				time.Sleep(time.Second)
+				continue
+			}
+			assert.Equal(t, http.StatusOK, code)
+			break
+		}
+
+		code, body = get("search?site=remark&query=test&limit=13")
+		assert.Equal(t, http.StatusOK, code)
+
+		serp := service.SearchResultPage{}
+		err := json.Unmarshal([]byte(body), &serp)
+		require.NoError(t, err)
+		assert.Equal(t, len(serp.Comments), 13)
+	}
+
+	app, ctx, cancel = createAppFromCmd(t, *cmd)
 	go func() { _ = app.run(ctx) }()
 	waitForHTTPServerStart(port)
 	assert.NoError(t, app.dataService.SearchService.Flush("remark"))
 
-	st := time.Now()
-	for time.Since(st) <= time.Minute {
-		code, _ = get("search?site=remark&query=test")
-		if code == http.StatusBadRequest {
-			time.Sleep(time.Second)
-			continue
-		}
-		assert.Equal(t, http.StatusOK, code)
-		break
-	}
+	testSearch()
+	cancel()
+	app.Wait()
 
-	code, body = get("search?site=remark&query=test&limit=13")
-	assert.Equal(t, http.StatusOK, code)
+	// start server once more to ensure that existing index is opened properly
+	app, ctx, cancel = createAppFromCmd(t, *cmd)
+	go func() { _ = app.run(ctx) }()
+	waitForHTTPServerStart(port)
 
-	serp := service.SearchResultPage{}
-	err := json.Unmarshal([]byte(body), &serp)
-	require.NoError(t, err)
-	assert.Equal(t, len(serp.Comments), 13)
-
+	testSearch()
 	cancel()
 	app.Wait()
 }

@@ -915,9 +915,12 @@ func (s *DataStore) Search(siteID, query, sortBy string, from, limit int) (*Sear
 
 // SearchHelp returns help for search syntax
 func (s *DataStore) SearchHelp() (SearchHelpPrompt, error) {
-	res := SearchHelpPrompt{}
-
-	res.Text = s.SearchService.Help()
+	res := SearchHelpPrompt{
+		Text: s.SearchService.Help(),
+	}
+	if res.Text == "" {
+		return res, search.ErrSearchNotEnabled
+	}
 	return res, nil
 }
 

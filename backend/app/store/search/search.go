@@ -10,6 +10,9 @@ import (
 	types "github.com/umputun/remark42/backend/app/store/search/types"
 )
 
+// NOTE: mockery works from linked to go-path and with GOFLAGS='-mod=vendor' go generate
+//go:generate sh -c "mockery -inpkg -name Service -print > /tmp/search-mock.tmp && mv /tmp/search-mock.tmp search_mock.go"
+
 // Service provides search for engine
 type Service interface {
 	IndexDocument(comment *store.Comment) error

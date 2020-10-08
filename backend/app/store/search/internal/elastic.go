@@ -104,7 +104,6 @@ func NewElasticService(params types.SearcherParams) (*Elastic, error) {
 	if params.Endpoint == "" || params.Secret == "" {
 		return nil, errors.Errorf("elasticsearch parameters are not set")
 	}
-
 	cfg := elasticsearch.Config{
 		Addresses: []string{params.Endpoint},
 	}
@@ -116,7 +115,10 @@ func NewElasticService(params types.SearcherParams) (*Elastic, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "filed to create elastic client")
 	}
+	return newElasticServiceWithClient(params, client)
+}
 
+func newElasticServiceWithClient(params types.SearcherParams, client *elasticsearch.Client) (*Elastic, error) {
 	bulkIndexers := map[string]esutil.BulkIndexer{}
 	for _, siteID := range params.Sites {
 		bi, err := esutil.NewBulkIndexer(esutil.BulkIndexerConfig{
@@ -335,8 +337,12 @@ func (e *Elastic) Delete(siteID, commentID string) error {
 
 // Flush all unprocessed documents
 func (e *Elastic) Flush(siteID string) error {
-	// TODO(@vdimir)
-	return nil
+	// esutil.BulkIndexer is responsible for caching documents and indexing them
+	// but it does not provide something like flush.
+	// We need to implement some workaround to track indexed documents.
+	// Actually, this module kind of example of alternative searcher.
+	// so this implementation omitted for simplicity
+	return errors.New("flush not supported for elastic engine")
 }
 
 // Close engine
@@ -360,5 +366,5 @@ func (e *Elastic) Ready() bool {
 
 // Help returns help message for user
 func (e *Elastic) Help() string {
-	return ""
+	return "See https://www.elastic.co/elasticsearch"
 }

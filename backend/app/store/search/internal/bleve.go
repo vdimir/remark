@@ -92,9 +92,7 @@ func newBleve(indexPath, analyzer string) (s *bufferedEngine, err error) {
 		indexPath:     indexPath,
 	}
 
-	eng.shutdownWait.Add(1)
-	// exit when queueNotifier is closed and decrements shutdownWait counter
-	go eng.indexDocumentWorker()
+	eng.Start()
 
 	return eng, nil
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/umputun/remark42/backend/app/rest/proxy"
 	"github.com/umputun/remark42/backend/app/store"
 	"github.com/umputun/remark42/backend/app/store/image"
+	"github.com/umputun/remark42/backend/app/store/search"
 	"github.com/umputun/remark42/backend/app/store/service"
 	"github.com/umputun/remark42/backend/app/templates"
 )
@@ -39,6 +40,7 @@ type Rest struct {
 	Version string
 
 	DataService      *service.DataStore
+	SearchService    *search.Service
 	Authenticator    *auth.Service
 	Cache            LoadingCache
 	ImageProxy       *proxy.Image
@@ -357,6 +359,7 @@ func (s *Rest) controllerGroups() (public, private, admin, rss) {
 
 	pubGrp := public{
 		dataService:      s.DataService,
+		searchService:    s.SearchService,
 		cache:            s.Cache,
 		imageService:     s.ImageService,
 		commentFormatter: s.CommentFormatter,

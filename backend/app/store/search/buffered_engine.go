@@ -1,4 +1,4 @@
-package internal
+package search
 
 import (
 	"bufio"
@@ -16,7 +16,7 @@ import (
 	log "github.com/go-pkgz/lgr"
 	"github.com/pkg/errors"
 
-	types "github.com/umputun/remark42/backend/app/store/search/types"
+	store "github.com/umputun/remark42/backend/app/store"
 )
 
 const aheadLogFname = ".ahead.log"
@@ -25,27 +25,25 @@ type idxFlusher struct {
 	notifier chan error
 }
 
-// bufferedEngine provides common functionality around searchEngine,
-// like buffering, startup/shutdown handling etc
 type bufferedEngine struct {
 	queueLock     sync.RWMutex
 	docQueue      deque.Deque
 	queueNotifier chan bool
 	shutdownWait  sync.WaitGroup
-	index         searchEngine
+	index         Engine
 	flushEvery    time.Duration
 	flushCount    int
 	indexPath     string
 }
 
 // IndexDocument adds or updates document to search index
-func (s *bufferedEngine) IndexDocument(doc *types.DocumentComment) error {
+func (s *bufferedEngine) Index(doc *store.Comment) error {
 	s.addDocToQueue(doc)
 	s.queueNotifier <- false
 	return nil
 }
 
-func (s *bufferedEngine) addDocToQueue(doc *types.DocumentComment) {
+func (s *bufferedEngine) addDocToQueue(doc *store.Comment) {
 	s.queueLock.Lock()
 	s.docQueue.PushBack(doc)
 	s.queueLock.Unlock()
@@ -61,15 +59,11 @@ func (s *bufferedEngine) indexBatch() {
 	}
 
 	notifiers := []*idxFlusher{}
-	batch := s.index.NewBatch()
+	batch := []*store.Comment{}
 	for i := 0; i < docCount; i++ {
 		switch val := s.docQueue.PopFront().(type) {
-		case *types.DocumentComment:
-			err := batch.Index(val.ID, val)
-			if err != nil {
-				log.Printf("[ERROR] error while adding doc %q to batch %v", val.ID, err)
-				break
-			}
+		case *store.Comment:
+			batch = append(batch, val)
 		case *idxFlusher:
 			notifiers = append(notifiers, val)
 		default:
@@ -80,7 +74,7 @@ func (s *bufferedEngine) indexBatch() {
 
 	s.queueLock.Unlock()
 
-	err := s.index.Batch(batch)
+	err := s.index.IndexBatch(batch)
 	if err != nil {
 		log.Printf("[ERROR] error while indexing batch, %v", err)
 	}
@@ -130,7 +124,7 @@ func (s *bufferedEngine) getAheadLogPath() string {
 }
 
 // dumpDoc writes a document to file separated with \0
-func dumpDoc(f *os.File, doc *types.DocumentComment) error {
+func dumpDoc(f *os.File, doc *store.Comment) error {
 	data, err := json.Marshal(doc)
 	if err != nil {
 		return err
@@ -167,7 +161,7 @@ func (s *bufferedEngine) dumpAheadLog() {
 	// write all unprocessed documents into a file
 	for s.docQueue.Len() > 0 {
 		switch val := s.docQueue.PopFront().(type) {
-		case *types.DocumentComment:
+		case *store.Comment:
 			if err != nil {
 				// we don't stop processing on error
 				// because we want to collect all waiters to send them an error
@@ -243,7 +237,7 @@ func (s *bufferedEngine) readAheadLog(ctx context.Context, reader *bufio.Reader)
 			return err
 		}
 		data = data[:len(data)-1]
-		var doc *types.DocumentComment
+		var doc *store.Comment
 		if err = json.Unmarshal(data, &doc); err == nil {
 			s.addDocToQueue(doc)
 		} else {
@@ -264,20 +258,6 @@ func (s *bufferedEngine) Flush() error {
 	s.queueNotifier <- true
 
 	return <-flusher.notifier
-}
-
-// Search documents
-func (s *bufferedEngine) Search(req *types.Request) (*types.ResultPage, error) {
-	log.Printf("[INFO] searching %v", req)
-	return s.index.Search(req)
-}
-
-// Delete comment from index
-func (s *bufferedEngine) Delete(commentID string) error {
-	if err := s.index.Delete(commentID); err != nil {
-		return errors.Wrapf(err, "cannot delete comment %q from search index", commentID)
-	}
-	return nil
 }
 
 // Close search service

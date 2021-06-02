@@ -20,7 +20,6 @@ import (
 	"github.com/umputun/remark42/backend/app/store/engine"
 	"github.com/umputun/remark42/backend/app/store/image"
 	"github.com/umputun/remark42/backend/app/store/search"
-	"github.com/umputun/remark42/backend/app/store/search/types"
 )
 
 // DataStore wraps store.Interface with additional methods
@@ -38,7 +37,6 @@ type DataStore struct {
 	TitleExtractor         *TitleExtractor
 	RestrictedWordsMatcher *RestrictedWordsMatcher
 	ImageService           *image.Service
-	SearchService          search.Service
 
 	// granular locks
 	scopedLocks struct {

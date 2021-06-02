@@ -143,23 +143,6 @@ func (s *Multiplexer) Flush(siteID string) error {
 	return errors.Errorf("index for site %q not found", siteID)
 }
 
-// Search document
-func (s *Multiplexer) Search(req *types.Request) (*types.ResultPage, error) {
-	searcher, has := s.shards[req.SiteID]
-	if !has {
-		return nil, errors.Errorf("no site %q in index", req.SiteID)
-	}
-	return searcher.Search(req)
-}
-
-// Delete document from index
-func (s *Multiplexer) Delete(siteID, commentID string) error {
-	if inner, has := s.shards[siteID]; has {
-		return inner.Delete(commentID)
-	}
-	return nil
-}
-
 // Help returns help string
 func (s *Multiplexer) Help() string {
 	switch s.engineType {
@@ -172,16 +155,3 @@ func (s *Multiplexer) Help() string {
 	return ""
 }
 
-// Close releases resources
-func (s *Multiplexer) Close() error {
-	log.Print("[INFO] closing search service...")
-	errs := new(multierror.Error)
-
-	for siteID, searcher := range s.shards {
-		if err := searcher.Close(); err != nil {
-			errs = multierror.Append(errs, errors.Wrapf(err, "cannot close searcher for %q", siteID))
-		}
-	}
-	log.Print("[INFO] search service closed")
-	return errs.ErrorOrNil()
-}

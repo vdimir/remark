@@ -29,6 +29,7 @@ import (
 
 type public struct {
 	dataService      pubStore
+	searchService    pubSearch
 	cache            LoadingCache
 	readOnlyAge      int
 	commentFormatter *store.CommentFormatter
@@ -53,6 +54,11 @@ type pubStore interface {
 	ValidateComment(c *store.Comment) error
 	IsReadOnly(locator store.Locator) bool
 	Counts(siteID string, postIDs []string) ([]store.PostInfo, error)
+}
+
+type pubSearch interface {
+	Search(search.Request) (search.ResultPage, error)
+	Index(comment *store.Comment) error
 }
 
 // GET /find?site=siteID&url=post-url&format=[tree|plain]&sort=[+/-time|+/-score|+/-controversy]&view=[user|all]&since=unix_ts_msec

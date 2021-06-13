@@ -5,6 +5,7 @@ import (
 	"github.com/umputun/remark42/backend/app/store"
 )
 
+// Engine provides core functionality for searching
 type Engine interface {
 	Index(comments []*store.Comment) error
 	Search(req *Request) (*ResultPage, error)

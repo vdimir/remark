@@ -19,6 +19,7 @@ type ServiceParams struct {
 	Analyzer  string
 }
 
+// NewService creates new search service
 func NewService(sites []string, params ServiceParams) (*Service, error) {
 	s := &Service{
 		shards: map[string]Engine{},
@@ -41,10 +42,12 @@ func (s *Service) Search(req *Request) (*ResultPage, error) {
 	return nil, errors.Errorf("no search index for site %q", req.SiteID)
 }
 
+// Index single document
 func (s *Service) Index(doc *store.Comment) error {
 	return s.IndexBatch([]*store.Comment{doc})
 }
 
+// IndexBatch indexes batch of document
 func (s *Service) IndexBatch(docs []*store.Comment) error {
 	if len(docs) == 0 {
 		return nil
@@ -70,6 +73,7 @@ func (s *Service) Delete(siteID, commentID string) error {
 	return errors.Errorf("Site %q not found", siteID)
 }
 
+// Close search service
 func (s *Service) Close() error {
 
 	log.Print("[INFO] closing search service...")

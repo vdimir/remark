@@ -76,6 +76,7 @@ func newBleveEngine(indexPath, analyzer string) (*bleveEngine, error) {
 	return eng, nil
 }
 
+// Index documents
 func (b *bleveEngine) Index(comments []*store.Comment) error {
 	batch := b.index.NewBatch()
 

@@ -367,8 +367,6 @@ func TestRest_frameAncestors(t *testing.T) {
 }
 
 func TestRest_Search(t *testing.T) {
-	var err error
-
 	ts, srv, teardown := startupTWithSrv(t, func (tmpDir string, srv *Rest) {
 		searchIndexPath, err := randomPath(tmpDir, "test-search-remark", "/")
 		require.NoError(t, err)
@@ -378,6 +376,7 @@ func TestRest_Search(t *testing.T) {
 			IndexPath: searchIndexPath,
 			Analyzer:  "standard",
 		})
+		require.NoError(t, err)
 		srv.DataService.Engine = search.WrapStoreEngineWithIndexer(srv.DataService.Engine, srv.SearchService)
 	})
 
@@ -406,7 +405,7 @@ func TestRest_Search(t *testing.T) {
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=bar")
 		require.Equal(t, 200, code, res)
 
-		err = json.Unmarshal([]byte(res), &serp)
+		err := json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
 		require.Equal(t, 2, len(serp.Documents), "should have 2 comments")
 		expected := sort.StringSlice([]string{id2, id3})
@@ -419,7 +418,7 @@ func TestRest_Search(t *testing.T) {
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test")
 		require.Equal(t, 200, code)
 
-		err = json.Unmarshal([]byte(res), &serp)
+		err := json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
 		require.Equal(t, 2, len(serp.Documents), "should have 2 comments")
 
@@ -433,7 +432,7 @@ func TestRest_Search(t *testing.T) {
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=-time")
 		require.Equal(t, 200, code)
 
-		err = json.Unmarshal([]byte(res), &serp)
+		err := json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
 		require.Equal(t, 2, len(serp.Documents), "should have 2 comments")
 		assert.Equal(t, []string{id2, id1}, []string{serp.Documents[0].ID, serp.Documents[1].ID})
@@ -442,7 +441,7 @@ func TestRest_Search(t *testing.T) {
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=-time&limit=1")
 		require.Equal(t, 200, code)
 
-		err = json.Unmarshal([]byte(res), &serp)
+		err := json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
 		require.Equal(t, 1, len(serp.Documents), "should have 1 comments")
 		assert.Equal(t, id2, serp.Documents[0].ID)
@@ -451,7 +450,7 @@ func TestRest_Search(t *testing.T) {
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=time")
 		require.Equal(t, 200, code)
 
-		err = json.Unmarshal([]byte(res), &serp)
+		err := json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
 		require.Equal(t, 2, len(serp.Documents), "should have 2 comments")
 		assert.Equal(t, []string{id1, id2}, []string{serp.Documents[0].ID, serp.Documents[1].ID})
@@ -460,7 +459,7 @@ func TestRest_Search(t *testing.T) {
 		res, code := get(t, ts.URL+"/api/v1/search?site=remark42&query=test&sort=time&skip=1")
 		require.Equal(t, 200, code)
 
-		err = json.Unmarshal([]byte(res), &serp)
+		err := json.Unmarshal([]byte(res), &serp)
 		assert.NoError(t, err)
 		require.Equal(t, 1, len(serp.Documents), "should have 1 comment")
 		assert.Equal(t, id2, serp.Documents[0].ID)

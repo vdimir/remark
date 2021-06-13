@@ -253,9 +253,9 @@ type RPCGroup struct {
 
 // SearchEngineGroup defines options group for search engine
 type SearchEngineGroup struct {
-	Engine    string `long:"engine" env:"ENGINE" description:"search engine to use" choice:"bleve" choice:"none" default:"none"`
+	Engine    string `long:"engine" env:"ENGINE" description:"search engine to use" choice:"bleve" choice:"none" default:"none"` //nolint
 	IndexPath string `long:"index_path" env:"INDEX_PATH" default:"./var/comments.index" description:"path to search index"`
-	Analyzer  string `long:"analyzer" env:"ANALYZER" description:"text analyzer type" choice:"standard" choice:"russian" choice:"english"  default:"standard"`
+	Analyzer  string `long:"analyzer" env:"ANALYZER" description:"text analyzer type" choice:"standard" choice:"russian" choice:"english"  default:"standard"` //nolint
 }
 
 // LoadingCache defines interface for caching

@@ -6,6 +6,7 @@ import (
 	"github.com/umputun/remark42/backend/app/store/engine"
 )
 
+// Request search query
 type Request struct {
 	SiteID string
 	Query  string
@@ -38,6 +39,8 @@ type IndexingStoreProxy struct {
 	search *Service
 }
 
+// WrapStoreEngineWithIndexer creates new engine.Interface that keep index conistent with updates
+// and proxy all calls to underlying engine.Interface
 func WrapStoreEngineWithIndexer(e engine.Interface, search *Service) engine.Interface {
 	if search == nil {
 		return e
@@ -45,6 +48,7 @@ func WrapStoreEngineWithIndexer(e engine.Interface, search *Service) engine.Inte
 	return &IndexingStoreProxy{e, search}
 }
 
+// Create new comment and add it to search index
 func (e *IndexingStoreProxy) Create(comment store.Comment) (commentID string, err error) {
 	commentID, err = e.Interface.Create(comment)
 	if err != nil {
@@ -58,6 +62,7 @@ func (e *IndexingStoreProxy) Create(comment store.Comment) (commentID string, er
 	return commentID, err
 }
 
+// Update comment and reindex it in search index
 func (e *IndexingStoreProxy) Update(comment store.Comment) error {
 	err := e.Interface.Update(comment)
 	if err != nil {
@@ -70,6 +75,7 @@ func (e *IndexingStoreProxy) Update(comment store.Comment) error {
 	return nil
 }
 
+// Delete comment from store and search index
 func (e *IndexingStoreProxy) Delete(req engine.DeleteRequest) error {
 	err := e.Interface.Delete(req)
 	if err != nil {

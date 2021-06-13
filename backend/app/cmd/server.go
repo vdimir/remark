@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/umputun/remark42/backend/app/store/search"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -43,16 +44,17 @@ import (
 
 // ServerCommand with command line flags and env
 type ServerCommand struct {
-	Store      StoreGroup      `group:"store" namespace:"store" env-namespace:"STORE"`
-	Avatar     AvatarGroup     `group:"avatar" namespace:"avatar" env-namespace:"AVATAR"`
-	Cache      CacheGroup      `group:"cache" namespace:"cache" env-namespace:"CACHE"`
-	Admin      AdminGroup      `group:"admin" namespace:"admin" env-namespace:"ADMIN"`
-	Notify     NotifyGroup     `group:"notify" namespace:"notify" env-namespace:"NOTIFY"`
-	SMTP       SMTPGroup       `group:"smtp" namespace:"smtp" env-namespace:"SMTP"`
-	Telegram   TelegramGroup   `group:"telegram" namespace:"telegram" env-namespace:"TELEGRAM"`
-	Image      ImageGroup      `group:"image" namespace:"image" env-namespace:"IMAGE"`
-	SSL        SSLGroup        `group:"ssl" namespace:"ssl" env-namespace:"SSL"`
-	ImageProxy ImageProxyGroup `group:"image-proxy" namespace:"image-proxy" env-namespace:"IMAGE_PROXY"`
+	Store        StoreGroup        `group:"store" namespace:"store" env-namespace:"STORE"`
+	Avatar       AvatarGroup       `group:"avatar" namespace:"avatar" env-namespace:"AVATAR"`
+	Cache        CacheGroup        `group:"cache" namespace:"cache" env-namespace:"CACHE"`
+	Admin        AdminGroup        `group:"admin" namespace:"admin" env-namespace:"ADMIN"`
+	Notify       NotifyGroup       `group:"notify" namespace:"notify" env-namespace:"NOTIFY"`
+	SMTP         SMTPGroup         `group:"smtp" namespace:"smtp" env-namespace:"SMTP"`
+	Telegram     TelegramGroup     `group:"telegram" namespace:"telegram" env-namespace:"TELEGRAM"`
+	Image        ImageGroup        `group:"image" namespace:"image" env-namespace:"IMAGE"`
+	SSL          SSLGroup          `group:"ssl" namespace:"ssl" env-namespace:"SSL"`
+	ImageProxy   ImageProxyGroup   `group:"image-proxy" namespace:"image-proxy" env-namespace:"IMAGE_PROXY"`
+	SearchEngine SearchEngineGroup `group:"search-engine" namespace:"search-engine" env-namespace:"SEARCH"`
 
 	Sites            []string      `long:"site" env:"SITE" default:"remark" description:"site names" env-delim:","`
 	AnonymousVote    bool          `long:"anon-vote" env:"ANON_VOTE" description:"enable anonymous votes (works only with VOTES_IP enabled)"`
@@ -247,6 +249,13 @@ type RPCGroup struct {
 	TimeOut      time.Duration `long:"timeout" env:"TIMEOUT" default:"5s" description:"http timeout"`
 	AuthUser     string        `long:"auth_user" env:"AUTH_USER" description:"basic auth user name"`
 	AuthPassword string        `long:"auth_passwd" env:"AUTH_PASSWD" description:"basic auth user password"`
+}
+
+// SearchEngineGroup defines options group for search engine
+type SearchEngineGroup struct {
+	Engine    string `long:"engine" env:"ENGINE" description:"search engine to use" choice:"bleve" choice:"none" default:"none"`
+	IndexPath string `long:"index_path" env:"INDEX_PATH" default:"./var/comments.index" description:"path to search index"`
+	Analyzer  string `long:"analyzer" env:"ANALYZER" description:"text analyzer type" choice:"standard" choice:"russian" choice:"english"  default:"standard"`
 }
 
 // LoadingCache defines interface for caching
@@ -493,6 +502,15 @@ func (s *ServerCommand) newServerApp() (*serverApp, error) {
 		return nil, errors.Wrap(err, "failed to make config of ssl server params")
 	}
 
+	searchService, err := s.makeSearchService()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create search service")
+	}
+	if searchService != nil {
+		// to track comment updates at search index
+		dataService.Engine = search.WrapStoreEngineWithIndexer(dataService.Engine, searchService)
+	}
+
 	srv := &api.Rest{
 		Version:            s.Revision,
 		DataService:        dataService,
@@ -509,6 +527,7 @@ func (s *ServerCommand) newServerApp() (*serverApp, error) {
 		SSLConfig:          sslConfig,
 		UpdateLimiter:      s.UpdateLimit,
 		ImageService:       imageService,
+		SearchService:      searchService,
 		EmailNotifications: emailNotifications,
 		EmojiEnabled:       s.EnableEmoji,
 		AnonVote:           s.AnonymousVote && s.RestrictVoteIP,
@@ -1053,6 +1072,24 @@ func (s *ServerCommand) makeAuthenticator(ds *service.DataStore, avas avatar.Sto
 	}
 
 	return authenticator, nil
+}
+
+func (s *ServerCommand) makeSearchService() (*search.Service, error) {
+	if s.SearchEngine.IndexPath == "" && s.SearchEngine.Engine != "none" {
+		return nil, errors.Errorf("search index path is not set")
+	}
+
+	log.Printf("[INFO] creating %q search service", s.SearchEngine.Engine)
+
+	if s.SearchEngine.Engine == "none" {
+		return nil, nil
+	}
+
+	return search.NewService(s.Sites, search.ServiceParams{
+		Engine:    s.SearchEngine.Engine,
+		IndexPath: s.SearchEngine.IndexPath,
+		Analyzer:  s.SearchEngine.Analyzer,
+	})
 }
 
 func (s *ServerCommand) parseSameSite(ss string) http.SameSite {

@@ -233,3 +233,19 @@ http://oldsite.com/from-old-page/1 https://newsite.com/to-new-page/1
 - `GET /api/v1/admin/deleteme?token=token` - process deleteme user's request
 
 _all admin calls require auth and admin privilege_
+
+### Search
+
+* `GET /search?site=siteID&query=query` - search comments for query `query` and returns `ResultPage`
+* `GET /search?site=siteID&query=query&sort=-time` - sort by time ascending
+* `GET /search?site=siteID&query=query&sort=-time&limit=20&skip=10` - pagination, get 20 comments, skip 10 first
+
+  Returns the list of comments matching the query and selected by `limit` and `skip` parameters.
+  Field `total` contains the total number of comments matching query in the index.
+
+```go
+type CommentsWithTotal struct {
+	Comments []store.Comment `json:"comments"`
+	Total    uint64          `json:"total"`
+}
+```

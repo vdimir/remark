@@ -118,6 +118,9 @@ GET {{host}}/api/v1/rss/reply?site={{site}}&user={{user}}
 ### get default avatar
 GET {{host}}/api/v1/avatar/blah
 
+### search comments
+GET {{host}}/api/v1/search?site={{site}}&query=query&limit=20&skip=0&sort=time
+
 ### send confirmation token for current user to specified email. auth token for dev user for secret=12345.
 POST {{host}}/api/v1/email/subscribe?site={{site}}&address={{email}}
 X-JWT: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJyZW1hcmsiLCJleHAiOjE5NzYwNTY3NTYsImp0aSI6IjJlOGJmMTE5OTI0MjQxMDRjYjFhZGRlODllMWYwNGFiMTg4YWZjMzQiLCJpYXQiOjE1NzYwNTY0NTYsImlzcyI6InJlbWFyazQyIiwidXNlciI6eyJuYW1lIjoiZGV2X3VzZXIiLCJpZCI6ImRldl91c2VyIiwicGljdHVyZSI6Imh0dHA6Ly8xMjcuMC4wLjE6ODA4MC9hcGkvdjEvYXZhdGFyL2NjZmEyYWJkMDE2Njc2MDViNGUxZmM0ZmNiOTFiMWUxYWYzMjMyNDAuaW1hZ2UiLCJhdHRycyI6eyJhZG1pbiI6dHJ1ZSwiYmxvY2tlZCI6ZmFsc2V9fX0.6Qt5s2enBMRC-Jmsua01yViVYI95Dx6BPBMaNjj36d4

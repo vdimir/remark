@@ -14,7 +14,7 @@ github.com/RoaringBitmap/roaring/internal
 # github.com/ajg/form v1.5.1
 ## explicit
 github.com/ajg/form
-# github.com/alecthomas/chroma/v2 v2.3.0
+# github.com/alecthomas/chroma/v2 v2.2.0
 ## explicit; go 1.17
 github.com/alecthomas/chroma/v2
 github.com/alecthomas/chroma/v2/formatters/html
@@ -40,7 +40,6 @@ github.com/blevesearch/bleve/v2/analysis/analyzer/standard
 github.com/blevesearch/bleve/v2/analysis/datetime/flexible
 github.com/blevesearch/bleve/v2/analysis/datetime/optional
 github.com/blevesearch/bleve/v2/analysis/lang/ar
-github.com/blevesearch/bleve/v2/analysis/lang/bg
 github.com/blevesearch/bleve/v2/analysis/lang/de
 github.com/blevesearch/bleve/v2/analysis/lang/en
 github.com/blevesearch/bleve/v2/analysis/lang/es
@@ -146,7 +145,7 @@ github.com/dghubble/oauth1/twitter
 # github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
 ## explicit
 github.com/dgryski/go-rendezvous
-# github.com/didip/tollbooth/v7 v7.0.1
+# github.com/didip/tollbooth/v7 v7.0.0
 ## explicit; go 1.12
 github.com/didip/tollbooth/v7
 github.com/didip/tollbooth/v7/errors
@@ -285,6 +284,9 @@ github.com/kyokomi/emoji/v2
 ## explicit; go 1.19
 github.com/microcosm-cc/bluemonday
 github.com/microcosm-cc/bluemonday/css
+# github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe
+## explicit
+github.com/montanaflynn/stats
 # github.com/mschoch/smat v0.2.0
 ## explicit; go 1.13
 github.com/mschoch/smat

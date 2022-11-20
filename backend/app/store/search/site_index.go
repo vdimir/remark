@@ -61,7 +61,7 @@ func IndexSite(ctx context.Context, siteID string, s *Service, e engine.Interfac
 		log.Printf("[INFO] %d documents indexed from site %v", len(comments), locator)
 
 		if indexErr != nil {
-			return fmt.Errorf("failed to index comments: %w", indexErr)
+			return fmt.Errorf("failed to index comments for search: %w", indexErr)
 		}
 
 		atomic.AddUint64(&indexedCnt, uint64(len(comments)))

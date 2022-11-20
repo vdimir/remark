@@ -40,8 +40,8 @@ type Request struct {
 	SortBy string
 
 	// Pagination
-	Offset int
-	Limit  int
+	Skip  int
+	Limit int
 }
 
 // DocumentKey is a unique key for a document

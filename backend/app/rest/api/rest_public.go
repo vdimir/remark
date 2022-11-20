@@ -390,8 +390,8 @@ func (s *public) telegramQrCtrl(w http.ResponseWriter, r *http.Request) {
 // GET /search?site=siteID&query=query&limit=20&skip=10&sort=[-]field - search documents
 // site - site ID
 // query - user-provided search query
-// limit - number of documents to return
-// skip - number of documents to skip
+// limit - number of documents to return, default is 20, maximum is 100
+// skip - number of documents to skip, default is 0 (do not skip anything), maximum is 1000
 // sort - sort by specified field, can be prefixed with "-" to reverse the order
 func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 	getIntParamInRange := func(min, max, defaultVal int, name string) (int, error) {
@@ -445,7 +445,7 @@ func (s *public) searchQueryCtrl(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		rest.SendErrorJSON(w, r, http.StatusInternalServerError, err, "can't perform search request", rest.ErrInternal)
+		rest.SendErrorJSON(w, r, http.StatusBadRequest, err, "can't perform search request", rest.ErrInternal)
 		return
 	}
 

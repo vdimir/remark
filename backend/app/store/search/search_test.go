@@ -88,6 +88,16 @@ func TestSearch_Site(t *testing.T) {
 	assert.Equal(t, "123457", res.Keys[0].ID)
 	assert.Equal(t, "123456", res.Keys[1].ID)
 
+	res, err = searcher.Search(&Request{SiteID: "test-site2", Query: "345", SortBy: "-time", Limit: 1})
+	require.NoError(t, err)
+	require.Len(t, res.Keys, 1)
+	assert.Equal(t, "123457", res.Keys[0].ID)
+
+	res, err = searcher.Search(&Request{SiteID: "test-site2", Query: "345", SortBy: "-time", Limit: 1, Skip: 1})
+	require.NoError(t, err)
+	require.Len(t, res.Keys, 1)
+	assert.Equal(t, "123456", res.Keys[0].ID)
+
 	res, err = searcher.Search(&Request{SiteID: "test-site2", Query: "123", Limit: 3})
 	require.NoError(t, err)
 	assert.Len(t, res.Keys, 0)
@@ -128,25 +138,25 @@ func TestSearch_Paginate(t *testing.T) {
 	}
 
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, SortBy: "time", Offset: 0})
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, SortBy: "time", Skip: 0})
 		require.NoError(t, err)
 		require.Len(t, res.Keys, 1)
 		assert.Equal(t, "comment0", res.Keys[0].ID)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, SortBy: "+time", Offset: 1})
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, SortBy: "+time", Skip: 1})
 		require.NoError(t, err)
 		require.Len(t, res.Keys, 1)
 		assert.Equal(t, "comment1", res.Keys[0].ID)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, SortBy: "+time", Offset: 3})
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 1, SortBy: "+time", Skip: 3})
 		require.NoError(t, err)
 		require.Len(t, res.Keys, 1)
 		assert.Equal(t, "comment3", res.Keys[0].ID)
 	}
 	{
-		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 2, Offset: 1, SortBy: "-time"})
+		res, err := searcher.Search(&Request{SiteID: "test-site", Query: "123", Limit: 2, Skip: 1, SortBy: "-time"})
 		require.NoError(t, err)
 		require.Len(t, res.Keys, 2)
 		assert.Equal(t, []string{"comment2", "comment1"}, []string{res.Keys[0].ID, res.Keys[1].ID})
@@ -239,6 +249,18 @@ func TestSearch_IndexStartup(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, serp.Keys, 19)
 	}
+}
+
+func TestSearch_BadAnalyzerName(t *testing.T) {
+	sites := []string{"test-site"}
+	idxPath := os.TempDir() + "/search-remark42"
+
+	_, err := NewService(sites, ServiceParams{
+		IndexPath: idxPath,
+		Analyzer:  "badanalyzer",
+	})
+
+	require.Error(t, err)
 }
 
 func createDB(t *testing.T, commentsPerSite int, sites []string) (e engine.Interface, teardown func()) {

@@ -72,7 +72,7 @@ func (b *bleveEngine) Index(comments []store.Comment) error {
 // Search performs search request
 func (b *bleveEngine) Search(req *Request) (*Result, error) {
 	bQuery := bleve.NewQueryStringQuery(req.Query)
-	bReq := bleve.NewSearchRequestOptions(bQuery, req.Limit, req.Offset, false)
+	bReq := bleve.NewSearchRequestOptions(bQuery, req.Limit, req.Skip, false)
 
 	switch {
 	case req.SortBy == "":
@@ -117,7 +117,7 @@ func newBleveEngine(indexPath, analyzer string) (*bleveEngine, error) {
 
 		bleveAnalyzerName, has := analyzerNameMapping[analyzer]
 		if !has {
-			return nil, fmt.Errorf("unknown analyzer %s", analyzer)
+			return nil, fmt.Errorf("unknown analyzer %q", analyzer)
 		}
 		index, err = bleve.New(indexPath, createIndexMapping(bleveAnalyzerName))
 		if err != nil {

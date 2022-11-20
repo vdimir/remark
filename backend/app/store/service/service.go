@@ -108,8 +108,8 @@ func (s *DataStore) Create(comment store.Comment) (commentID string, err error) 
 	commentID, err = s.Engine.Create(comment)
 	s.submitImages(comment)
 
-	if e := s.indexComment(comment); e != nil {
-		log.Printf("[WARN] failed to index comment, %v", e)
+	if e := s.indexCommentForSearch(comment); e != nil {
+		log.Printf("[WARN] failed to index comment for search, %v", e)
 	}
 
 	if e := s.AdminStore.OnEvent(comment.Locator.SiteID, admin.EvCreate); e != nil {
@@ -160,6 +160,12 @@ func (s *DataStore) Get(locator store.Locator, commentID string, user store.User
 		return store.Comment{}, err
 	}
 	return s.alterComment(c, user), nil
+}
+
+// Put updates comment, mutable parts only
+func (s *DataStore) Put(locator store.Locator, comment store.Comment) error {
+	comment.Locator = locator
+	return s.Engine.Update(comment)
 }
 
 // GetUserEmail gets user email
@@ -525,7 +531,7 @@ func (s *DataStore) EditComment(locator store.Locator, commentID string, req Edi
 
 	err = s.Engine.Update(comment)
 
-	if e := s.indexComment(comment); e != nil {
+	if e := s.indexCommentForSearch(comment); e != nil {
 		log.Printf("[WARN] failed to update comment index, %v", e)
 	}
 
@@ -923,25 +929,25 @@ func (s *DataStore) Search(siteID, query, sortBy string, limit, skip int) ([]sto
 		SiteID: siteID,
 		Query:  query,
 		Limit:  limit,
-		Offset: skip,
+		Skip:   skip,
 		SortBy: sortBy,
 	}
 
-	seqrchRes, err := s.SearchService.Search(req)
+	searchRes, err := s.SearchService.Search(req)
 	if err != nil {
 		return nil, 0, fmt.Errorf("search failed: %w", err)
 	}
 
-	comments := make([]store.Comment, 0, len(seqrchRes.Keys))
-	for _, docKey := range seqrchRes.Keys {
-		comment, err := s.Get(docKey.Locator, docKey.ID, nonAdminUser)
-		if err != nil {
+	comments := make([]store.Comment, 0, len(searchRes.Keys))
+	for _, docKey := range searchRes.Keys {
+		comment, e := s.Get(docKey.Locator, docKey.ID, nonAdminUser)
+		if e != nil {
 			// ignore error because comment can be deleted from the store (but we still have it in search index)
 			continue
 		}
 		comments = append(comments, comment)
 	}
-	return comments, seqrchRes.Total, nil
+	return comments, searchRes.Total, nil
 }
 
 // RunSiteIndexers indexes all comments for siteID in the sized group.
@@ -1067,7 +1073,7 @@ func (s *DataStore) getSecret(siteID string) (secret string, err error) {
 	return secret, nil
 }
 
-func (s *DataStore) indexComment(comment store.Comment) error {
+func (s *DataStore) indexCommentForSearch(comment store.Comment) error {
 	if s.SearchService != nil {
 		err := s.SearchService.Index(comment)
 		if err != nil {

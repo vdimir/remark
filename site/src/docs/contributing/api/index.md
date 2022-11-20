@@ -237,11 +237,14 @@ _all admin calls require auth and admin privilege_
 ### Search
 
 * `GET /search?site=siteID&query=query` - search comments for query `query` and returns `ResultPage`
-* `GET /search?site=siteID&query=query&sort=-time` - sort by time ascending
-* `GET /search?site=siteID&query=query&sort=-time&limit=20&skip=10` - pagination, get 20 comments, skip 10 first
+* `GET /search?site=siteID&query=query&sort=time` - sort by time ascending (oldest first)
+* `GET /search?site=siteID&query=query&sort=-time` - sort by time descending (newest first)
+* `GET /search?site=siteID&query=query&sort=-time&limit=20&skip=10` - pagination, get 20 comments after skiping 10 most newest
 
   Returns the list of comments matching the query and selected by `limit` and `skip` parameters.
   Field `total` contains the total number of comments matching query in the index.
+  Note: this functionality is optional and should be configured. If it's disabled, the `/search` endpoint will return a `Bad Request` error.
+
 
 ```go
 type CommentsWithTotal struct {

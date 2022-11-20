@@ -250,19 +250,16 @@ func TestRest_Search(t *testing.T) {
 		{"hello world test", "&sort=time&skip=1", []int{2, 3}, http.StatusOK},
 		{"hello world test", "&sort=time&skip=1&limit=1", []int{2}, http.StatusOK},
 		{"", "", []int{}, http.StatusBadRequest},
+		{"test", "&sort=text", []int{}, http.StatusBadRequest},
 		{"test", "&skip=-1", []int{}, http.StatusBadRequest},
 		{"test", "&limit=999999", []int{}, http.StatusBadRequest},
-
-		// this field is checked inside search service,
-		// and the handler doesn't know the rules for the validation of the field
-		{"test", "&sort=text", []int{}, http.StatusInternalServerError},
 	}
 
 	cnt := 0
 	for i, tt := range tbl {
 		tt := tt
 
-		cnt += 1
+		cnt++
 		if (cnt % 10) == 0 {
 			// wait for rate limiter
 			time.Sleep(1 * time.Second)
@@ -288,6 +285,16 @@ func TestRest_Search(t *testing.T) {
 			require.Equal(t, tt.ids, foundIds)
 		})
 	}
+}
+
+func TestRest_SearchDisabledFeature(t *testing.T) {
+	ts, _, teardown := startupT(t)
+	defer teardown()
+
+	resp, err := http.Get(ts.URL + "/api/v1/search?site=remark42&query=test")
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func Test_URLKey(t *testing.T) {

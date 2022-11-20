@@ -270,7 +270,7 @@ type RPCGroup struct {
 
 // SearchGroup defines options group for search engine
 type SearchGroup struct {
-	Engine    bool   `long:"engine" env:"ENGINE" description:"enable search engine"`
+	Enable    bool   `long:"enable" env:"ENABLE" description:"enable search engine"`
 	IndexPath string `long:"index_path" env:"INDEX_PATH" description:"search index location" default:"./var/search_index"`
 	Analyzer  string `long:"analyzer" env:"ANALYZER" description:"text analyzer type, set language-specific one to improve search quality" choice:"standard" choice:"ar" choice:"de" choice:"en" choice:"es" choice:"fi" choice:"fr" choice:"it" choice:"ru" default:"standard"` //nolint
 }
@@ -1191,15 +1191,14 @@ func (s *ServerCommand) getAuthenticator(ds *service.DataStore, avas avatar.Stor
 }
 
 func (s *ServerCommand) makeSearchService() (*search.Service, error) {
-	if !s.Search.Engine {
+	if !s.Search.Enable {
 		return nil, nil
 	}
+	log.Printf("[INFO] creating search service")
 
 	if s.Search.IndexPath == "" {
 		return nil, fmt.Errorf("search index path is not set")
 	}
-
-	log.Printf("[INFO] creating search service")
 
 	return search.NewService(s.Sites, search.ServiceParams{
 		IndexPath: s.Search.IndexPath,

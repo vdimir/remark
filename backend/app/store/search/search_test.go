@@ -106,6 +106,13 @@ func TestSearch_Site(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, res.Keys, 0)
 
+	_, err = searcher.Search(&Request{SiteID: "test-site2", Query: "345", SortBy: "badfield"})
+	require.Error(t, err)
+
+	res, err = searcher.Search(&Request{SiteID: "test-site3", Query: "345", Limit: 3})
+	require.NoError(t, err)
+	assert.Len(t, res.Keys, 0)
+
 	// restart service to check that saved index is loaded
 	err = searcher.Close()
 	require.NoError(t, err)
